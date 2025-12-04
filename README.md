@@ -15,7 +15,7 @@ This repository contains a minimal web-based chat interface for interacting with
 - `requirements.txt` - Python dependencies
 
 ## access
-启动后访问: http://localhost:5000
+After startup access: http://localhost:5000
 
 ## attention
 The core implementation of LeakAgent has been uploaded to a GitHub repository. The repository currently contains the main components of the framework, while the LTGFM module cannot be made publicly available at this stage.
