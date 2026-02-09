@@ -30,19 +30,40 @@ This repository contains a minimal web-based chat interface for interacting with
 *Click the image to play demo.mp4.*
 
 ---
-## Quick Start
+
+## 📜 Quick Start
 ```bash
 ./start.sh
 ```
 
-## File Description
+## 📜 File Description
 - `web_chat_app.py` - Main application
 - `agents/` - Agent modules
 - `templates/` - HTML templates
 - `requirements.txt` - Python dependencies
 
-## access
+
+## 📜 Access
 After startup access: http://localhost:5000
 
-## attention
+---
+
+## 📜 Acknowledgment
+
+The authors express deep gratitude to Dr. Enyang Gao, General Manager of Deep-Sea 3D Vision Co., Ltd., whose invaluable guidance and mentorship made this research possible. The name “2-GAO” serves as a tribute to Dr. Gao’s contributions to the field of computer vision and his continued support of our research endeavors.
+
+<img src="paper/7d36d1c9cd551d9554675c3f3528f0c6.jpg" alt="GYN" width="25%"/>
+Figure: Dr.Gao's portrait.
+
+---
+
+## 📜 Attention
 The core implementation of LeakAgent has been uploaded to a GitHub repository. The repository currently contains the main components of the framework, while the LTGFM module cannot be made publicly available at this stage.
+
+---
+
+## 📜 License
+
+MIT License
+
+---
