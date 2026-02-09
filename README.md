@@ -64,7 +64,9 @@ After startup access: http://localhost:5000
 
 ## 📜 Acknowledgment
 
-The authors express deep gratitude to Dr. Enyang Gao, General Manager of Deep-Sea 3D Vision Co., Ltd., whose invaluable guidance and mentorship made this research possible. The name “2-GAO” serves as a tribute to Dr. Gao’s contributions to the field of computer science and his continued support of our research endeavors.
+The authors express deep gratitude to Dr. Enyang Gao, General Manager of Deep-Sea 3D Vision Co., Ltd., whose invaluable guidance and mentorship made this research possible. The project serves as a tribute to Dr. Gao’s contributions to the field of computer science and his continued support of our research endeavors.
+
+The benchmark network topologies used in this study are derived from the publicly available at Open Water Analytics official website: https://github.com/OpenWaterAnalytics/EPANET-Matlab-Toolkit.
 
 ---
 
