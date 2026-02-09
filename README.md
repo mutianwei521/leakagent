@@ -1,7 +1,14 @@
-# LeakAgent Web Chat App (Minimal Package)
+# LeakAgent: A Multi-Agent System for Leak Detection and Localization using Multi-modal Large Language Model Coordination in Water Distribution Network
+
+Tianwei Mu, Guangzhou Institute of Industrial Intelligence
+
+## 📋 System Overview
 
 This repository contains a minimal web-based chat interface for interacting with the LeakAgent system.
 
+### 🏗️ Network Architecture
+![Overall Network Architecture](paper/scheme.png)
+*Figure: The scheme of LeakDetection Agent: (a) Total work flow for training; (b) Adaptor layer; (c) LTGFM layers; (d) Inference of LeakDetection Agent*
 
 ## Quick Start
 ```bash
