@@ -127,8 +127,6 @@ The core implementation of LeakAgent is open-sourced in this repository. Please 
 ## 📝 Citation
 
 As soon as possible
-```
----
 
 ## � License
 
