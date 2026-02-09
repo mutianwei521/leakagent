@@ -17,7 +17,8 @@ This repository contains a minimal web-based chat interface for interacting with
 
 ---
 ### 📊 LeakAgent Demo
-[Demo Video](https://www.youtube.com/watch?v=GbUHKllEPh0)
+[![Watch Demo](paper/td.png)](https://www.youtube.com/watch?v=GbUHKllEPh0)
+
 
 ---
 ## Quick Start
