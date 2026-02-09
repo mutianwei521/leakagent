@@ -127,15 +127,7 @@ The core implementation of LeakAgent is open-sourced in this repository. Please 
 
 ## 📝 Citation
 
-If you find this project useful for your research, please consider citing our paper:
-
-```bibtex
-@article{mu2024leakagent,
-  title={LeakAgent: A Multi-Agent System for Leak Detection and Localization},
-  author={Mu, Tianwei and Others},
-  journal={Journal Name (Waiting for Publishing)},
-  year={2026}
-}
+As soon as possible
 ```
 
 ## � License
