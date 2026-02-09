@@ -19,7 +19,7 @@ Guangzhou Institute of Industrial Intelligence
 ---
 
 ## 🔥 News
-- **[2026-02-09]** LeakAgent code is released! Now supports advanced sensor placement and leak detection.
+- **[2026-02-09]** LeakAgent code is released! Now supports advanced sensor placement and Network Partitioning.
 - **[2026-01-20]** Added support for spectral clustering-based network partitioning.
 
 ## 📋 Introduction
