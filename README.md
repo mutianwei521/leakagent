@@ -13,10 +13,18 @@ This repository contains a minimal web-based chat interface for interacting with
 ---
 ### 📊 Interface Show
 ![Result Show](paper/interface.png)
-*Figure: Comprehensive comparison of original, reference, and synthetically defect images of 4 industrial object categories using 2-GAO: (a) bottle, (b) cable, (c) capsule, and (d) carpet.*
+*Figure: The software interface of the LeakAgent.*
 
 ---
+### 📊 LeakAgent Demo
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=GbUHKllEPh0">
+    <img src="paper/td.png" alt="Demo Video" width="720">
+  </a>
+</p>
+<p align="center"><em>Click the image to watch the demo video.</em></p>
 
+---
 ## Quick Start
 ```bash
 ./start.sh
