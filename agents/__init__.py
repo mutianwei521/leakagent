@@ -1,6 +1,6 @@
-# LeakAgent 智能体模块
+# LeakAgent Agent Module
 from .base_agent import BaseAgent
-# 使用缓存版本的IntentClassifier以提升初始化速度
+# Use cached version of IntentClassifier to improve initialization speed
 from .intent_classifier_fast import FastIntentClassifier as IntentClassifier
 from .llm_task_analyzer import LLMTaskAnalyzer
 from .agent_executor import AgentExecutor

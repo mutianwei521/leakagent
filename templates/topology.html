@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>管网拓扑图 - LeakAgent</title>
+    <title>Network Topology - LeakAgent</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,7 +62,8 @@
             stroke: #8b5cf6;
         }
 
-        .node:hover, .link:hover {
+        .node:hover,
+        .link:hover {
             filter: brightness(1.2);
         }
 
@@ -92,36 +94,42 @@
         .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
         }
+
         .custom-scrollbar::-webkit-scrollbar-track {
             background: #171717;
         }
+
         .custom-scrollbar::-webkit-scrollbar-thumb {
             background: #4A4A4A;
             border-radius: 4px;
             border: 2px solid #171717;
         }
+
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: #6c6c6c;
         }
     </style>
 </head>
+
 <body class="text-gray-200">
     <!-- Top Navigation Bar -->
     <nav class="bg-gray-800 border-b border-white/10 px-4 py-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-6">
-                <h1 class="text-xl font-semibold text-white">LeakAgent供水管网垂域大模型</h1>
+                <h1 class="text-xl font-semibold text-white">LeakAgent Water Supply Network Domain LLM</h1>
                 <div class="flex space-x-4">
-                    <a href="/" class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        💬 智能对话
+                    <a href="/"
+                        class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        💬 Chat
                     </a>
-                    <a href="/topology" class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 transition-colors">
-                        🗺️拓扑图
+                    <a href="/topology"
+                        class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 transition-colors">
+                        🗺️Topology
                     </a>
                 </div>
             </div>
             <div class="text-sm text-gray-400">
-                管网拓扑结构可视化与数据分析
+                Network Topology Visualization and Data Analysis
             </div>
         </div>
     </nav>
@@ -131,40 +139,44 @@
         <aside class="w-80 bg-gray-900 border-r border-white/10 flex flex-col">
             <!-- File Selection -->
             <div class="p-4 border-b border-white/10">
-                <h2 class="text-lg font-semibold mb-4">📁 文件选择</h2>
-                
+                <h2 class="text-lg font-semibold mb-4">📁 File Selection</h2>
+
                 <!-- INP Files -->
                 <div class="mb-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">管网文件 (.inp)</h3>
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Network Files (.inp)</h3>
                     <div id="inp-files-list" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                         <div class="text-center text-gray-500 py-4">
-                            <div class="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-                            加载中...
+                            <div
+                                class="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2">
+                            </div>
+                            Loading...
                         </div>
                     </div>
                 </div>
 
                 <!-- CSV Files -->
                 <div class="mb-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">数据文件 (.csv)</h3>
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Data Files (.csv)</h3>
                     <div id="csv-files-list" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
                         <div class="text-center text-gray-500 py-4">
-                            请先选择管网文件
+                            Please select network file first
                         </div>
                     </div>
                 </div>
 
                 <!-- Load Button -->
-                <button id="load-topology-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                    🗺️ 加载拓扑图
+                <button id="load-topology-btn"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    🗺️ Load Topology
                 </button>
             </div>
 
             <!-- Network Info -->
             <div class="p-4 border-b border-white/10">
-                <h3 class="text-sm font-medium text-gray-400 mb-2">📊 网络信息</h3>
+                <h3 class="text-sm font-medium text-gray-400 mb-2">📊 Network Info</h3>
                 <div id="network-info" class="text-sm text-gray-300 space-y-1">
-                    <div>请选择管网文件</div>
+                    <div>Please select network file</div>
                 </div>
             </div>
 
@@ -177,60 +189,66 @@
             <div class="bg-gray-800 border-b border-white/10 px-4 py-3">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center space-x-4">
-                        <h2 class="text-lg font-semibold">管网拓扑图</h2>
+                        <h2 class="text-lg font-semibold">Network Topology</h2>
                         <div id="current-file-info" class="text-sm text-gray-400">
-                            未选择文件
+                            No file selected
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button id="zoom-in-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                        <button id="zoom-in-btn"
+                            class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
                             🔍+
                         </button>
-                        <button id="zoom-out-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                        <button id="zoom-out-btn"
+                            class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
                             🔍-
                         </button>
-                        <button id="reset-view-btn" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
-                            🎯 重置视图
+                        <button id="reset-view-btn"
+                            class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                            🎯 Reset View
                         </button>
-                        <button id="legend-toggle" class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
-                            🎨 图例
+                        <button id="legend-toggle"
+                            class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors">
+                            🎨 Legend
                         </button>
                     </div>
                 </div>
 
-                <!-- 控制面板 -->
+                <!-- Control Panel -->
                 <div class="flex items-center justify-between space-x-6">
-                    <!-- 时间控制 -->
+                    <!-- Time Control -->
                     <div id="time-controls" class="flex items-center space-x-3" style="display: none;">
-                        <span class="text-sm text-gray-400">时间:</span>
+                        <span class="text-sm text-gray-400">Time:</span>
                         <input type="range" id="time-slider" min="0" max="24" step="1" value="0"
-                               class="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                        <span id="time-display" class="text-sm text-white min-w-[60px]">0.0 小时</span>
+                            class="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                        <span id="time-display" class="text-sm text-white min-w-[60px]">0.0 Hours</span>
                     </div>
 
-                    <!-- 大小控制 -->
+                    <!-- Size Control -->
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-400">节点:</span>
+                            <span class="text-sm text-gray-400">Node:</span>
                             <input type="range" id="node-size-slider" min="0.0" max="3" step="0.1" value="1"
-                                   class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-400">管段:</span>
+                            <span class="text-sm text-gray-400">Link:</span>
                             <input type="range" id="link-size-slider" min="0.0" max="3" step="0.1" value="1"
-                                   class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
                         </div>
                     </div>
 
-                    <!-- ID显示控制 -->
+                    <!-- ID Display Control -->
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">
-                            <input type="checkbox" id="show-node-ids" class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
-                            <label for="show-node-ids" class="text-sm text-gray-400">节点ID</label>
+                            <input type="checkbox" id="show-node-ids"
+                                class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                            <label for="show-node-ids" class="text-sm text-gray-400">Node ID</label>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <input type="checkbox" id="show-link-ids" class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
-                            <label for="show-link-ids" class="text-sm text-gray-400">管段ID</label>
+                            <input type="checkbox" id="show-link-ids"
+                                class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                            <label for="show-link-ids" class="text-sm text-gray-400">Link ID</label>
                         </div>
                     </div>
                 </div>
@@ -238,73 +256,77 @@
 
             <!-- Visualization Area -->
             <div class="flex-1 p-4">
-                <div id="topology-container" class="w-full h-full bg-gray-800 rounded-lg border border-white/10 relative">
+                <div id="topology-container"
+                    class="w-full h-full bg-gray-800 rounded-lg border border-white/10 relative">
                     <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center">
                         <div class="text-center">
                             <div class="text-6xl mb-4">🗺️</div>
-                            <div class="text-xl text-gray-400">选择管网文件开始可视化</div>
-                            <div class="text-sm text-gray-500 mt-2">支持 EPANET .inp 格式文件</div>
+                            <div class="text-xl text-gray-400">Select network file to start visualization</div>
+                            <div class="text-sm text-gray-500 mt-2">Supports EPANET .inp format files</div>
                         </div>
                     </div>
                     <!-- Floating Legend -->
-                    <div id="legend-panel" class="absolute top-4 right-4 z-10 bg-gray-800/95 backdrop-blur-sm border border-white/20 rounded-lg p-3 shadow-lg min-w-[180px]" style="display: none;">
+                    <div id="legend-panel"
+                        class="absolute top-4 right-4 z-10 bg-gray-800/95 backdrop-blur-sm border border-white/20 rounded-lg p-3 shadow-lg min-w-[180px]"
+                        style="display: none;">
                         <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-sm font-medium text-gray-300">🎨 图例</h3>
-                            <button id="legend-close" class="text-gray-400 hover:text-white text-lg leading-none">&times;</button>
+                            <h3 class="text-sm font-medium text-gray-300">🎨 Legend</h3>
+                            <button id="legend-close"
+                                class="text-gray-400 hover:text-white text-lg leading-none">&times;</button>
                         </div>
                         <div class="space-y-3 text-xs">
-                            <!-- 节点类型 -->
+                            <!-- Node Type -->
                             <div class="space-y-1">
-                                <div class="text-xs text-gray-400 font-medium">节点类型</div>
+                                <div class="text-xs text-gray-400 font-medium">Node Type</div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
-                                    <span class="text-gray-300">接点</span>
+                                    <span class="text-gray-300">Junction</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-                                    <span class="text-gray-300">水库</span>
+                                    <span class="text-gray-300">Reservoir</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-                                    <span class="text-gray-300">水塔</span>
+                                    <span class="text-gray-300">Tank</span>
                                 </div>
                             </div>
 
-                            <!-- 管段类型 -->
+                            <!-- Link Type -->
                             <div class="space-y-1">
-                                <div class="text-xs text-gray-400 font-medium">管段类型</div>
+                                <div class="text-xs text-gray-400 font-medium">Link Type</div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-0.5 bg-gray-500"></div>
-                                    <span class="text-gray-300">管道</span>
+                                    <span class="text-gray-300">Pipe</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-1 bg-red-500"></div>
-                                    <span class="text-gray-300">水泵</span>
+                                    <span class="text-gray-300">Pump</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-1 bg-purple-500"></div>
-                                    <span class="text-gray-300">阀门</span>
+                                    <span class="text-gray-300">Valve</span>
                                 </div>
                             </div>
 
-                            <!-- 数据颜色说明 -->
+                            <!-- Data Color Legend -->
                             <div id="data-legend" class="space-y-1" style="display: none;">
-                                <div class="text-xs text-gray-400 font-medium">数据颜色</div>
+                                <div class="text-xs text-gray-400 font-medium">Data Color</div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
-                                    <span class="text-gray-300">低压力</span>
+                                    <span class="text-gray-300">Low Pressure</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                                    <span class="text-gray-300">高压力</span>
+                                    <span class="text-gray-300">High Pressure</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-0.5 bg-green-400"></div>
-                                    <span class="text-gray-300">正流量</span>
+                                    <span class="text-gray-300">Positive Flow</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-0.5 bg-red-400"></div>
-                                    <span class="text-gray-300">负流量</span>
+                                    <span class="text-gray-300">Negative Flow</span>
                                 </div>
                             </div>
                         </div>
@@ -339,7 +361,7 @@
         let showLinkIds = false;
 
         // Initialize page
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             loadInpFiles();
             loadCsvFiles();
             initializeVisualization();
@@ -350,9 +372,9 @@
             try {
                 const response = await fetch('/api/inp_files');
                 const data = await response.json();
-                
+
                 const container = document.getElementById('inp-files-list');
-                
+
                 if (data.success && data.files.length > 0) {
                     container.innerHTML = '';
                     data.files.forEach(file => {
@@ -360,11 +382,11 @@
                         container.appendChild(fileItem);
                     });
                 } else {
-                    container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无管网文件</div>';
+                    container.innerHTML = '<div class="text-center text-gray-500 py-4">No network files</div>';
                 }
             } catch (error) {
-                console.error('加载INP文件失败:', error);
-                document.getElementById('inp-files-list').innerHTML = '<div class="text-center text-red-500 py-4">加载失败</div>';
+                console.error('Failed to load INP files:', error);
+                document.getElementById('inp-files-list').innerHTML = '<div class="text-center text-red-500 py-4">Load failed</div>';
             }
         }
 
@@ -373,9 +395,9 @@
             try {
                 const response = await fetch('/api/csv_files');
                 const data = await response.json();
-                
+
                 const container = document.getElementById('csv-files-list');
-                
+
                 if (data.success && data.files.length > 0) {
                     container.innerHTML = '';
                     data.files.forEach(file => {
@@ -383,11 +405,11 @@
                         container.appendChild(fileItem);
                     });
                 } else {
-                    container.innerHTML = '<div class="text-center text-gray-500 py-4">暂无数据文件</div>';
+                    container.innerHTML = '<div class="text-center text-gray-500 py-4">No data files</div>';
                 }
             } catch (error) {
-                console.error('加载CSV文件失败:', error);
-                document.getElementById('csv-files-list').innerHTML = '<div class="text-center text-red-500 py-4">加载失败</div>';
+                console.error('Failed to load CSV files:', error);
+                document.getElementById('csv-files-list').innerHTML = '<div class="text-center text-red-500 py-4">Load failed</div>';
             }
         }
 
@@ -400,18 +422,18 @@
 
             const icon = type === 'inp' ? '📄' : '📊';
             const size = (file.size / 1024).toFixed(1) + ' KB';
-            const date = new Date(file.modified).toLocaleDateString('zh-CN');
+            const date = new Date(file.modified).toLocaleDateString('en-US');
 
-            // 添加文件来源标识
+            // Add file source indicator
             let sourceIcon = '';
             let sourceText = '';
             if (type === 'inp' && file.source) {
                 if (file.source === 'uploaded') {
                     sourceIcon = '📤';
-                    sourceText = '已上传';
+                    sourceText = 'Uploaded';
                 } else if (file.source === 'example') {
                     sourceIcon = '📋';
-                    sourceText = '示例';
+                    sourceText = 'Example';
                 }
             }
 
@@ -430,13 +452,13 @@
                 </div>
             `;
 
-            // 添加单击和双击事件处理
+            // Add click and double click event handlers
             let clickTimeout;
             div.addEventListener('click', (e) => {
                 clearTimeout(clickTimeout);
                 clickTimeout = setTimeout(() => {
                     selectFile(file, type, div);
-                }, 250); // 250ms延迟区分单击和双击
+                }, 250); // 250ms delay to distinguish single and double click
             });
 
             div.addEventListener('dblclick', (e) => {
@@ -475,15 +497,15 @@
             }
         }
 
-        // Deselect file (双击取消选择)
+        // Deselect file (double click to unselect)
         function deselectFile(type, element) {
             if (type === 'inp') {
                 element.classList.remove('selected');
                 currentInpFile = null;
-                networkData = null; // 清除网络数据缓存
+                networkData = null; // Clear network data cache
 
                 // Clear network info
-                document.getElementById('network-info').innerHTML = '<div>请选择管网文件</div>';
+                document.getElementById('network-info').innerHTML = '<div>Please select network file</div>';
 
                 // Clear topology if loaded
                 if (document.getElementById('topology-svg')) {
@@ -491,8 +513,8 @@
                         <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center">
                             <div class="text-center">
                                 <div class="text-6xl mb-4">🗺️</div>
-                                <div class="text-xl text-gray-400">选择管网文件开始可视化</div>
-                                <div class="text-sm text-gray-500 mt-2">支持 EPANET .inp 格式文件</div>
+                                <div class="text-xl text-gray-400">Select network file to start visualization</div>
+                                <div class="text-sm text-gray-500 mt-2">Supports EPANET .inp format files</div>
                             </div>
                         </div>
                     `;
@@ -524,31 +546,31 @@
         // Ensure network data is loaded
         async function ensureNetworkDataLoaded() {
             if (!currentInpFile) {
-                throw new Error('没有选择INP文件');
+                throw new Error('No INP file selected');
             }
 
             if (networkData) {
-                console.log('网络数据已存在，跳过加载');
+                console.log('Network data already exists, skipping load');
                 return networkData;
             }
 
-            console.log('正在加载网络数据...');
+            console.log('Loading network data...');
             const response = await fetch(`/api/network_topology/${encodeURIComponent(currentInpFile.path)}`);
             const data = await response.json();
 
             if (data.success) {
                 networkData = data.topology;
-                console.log('网络数据加载成功:', {
+                console.log('Network data loaded successfully:', {
                     nodes: networkData.nodes.total,
                     links: networkData.links.total
                 });
 
-                // 同时更新网络信息显示
+                // Also update network info display
                 updateNetworkInfoDisplay();
 
                 return networkData;
             } else {
-                throw new Error(data.error || '加载网络数据失败');
+                throw new Error(data.error || 'Failed to load network data');
             }
         }
 
@@ -558,15 +580,15 @@
 
             const infoContainer = document.getElementById('network-info');
             infoContainer.innerHTML = `
-                <div>节点总数: ${networkData.nodes.total}</div>
-                <div>• 接点: ${networkData.nodes.junctions}</div>
-                <div>• 水库: ${networkData.nodes.reservoirs}</div>
-                <div>• 水塔: ${networkData.nodes.tanks}</div>
-                <div class="mt-2">管段总数: ${networkData.links.total}</div>
-                <div>• 管道: ${networkData.links.pipes}</div>
-                <div>• 水泵: ${networkData.links.pumps}</div>
-                <div>• 阀门: ${networkData.links.valves}</div>
-                <div class="mt-2">总长度: ${networkData.network_stats && networkData.network_stats.total_length ? networkData.network_stats.total_length.toFixed(2) : 'N/A'} m</div>
+                <div>Total Nodes: ${networkData.nodes.total}</div>
+                <div>• Junctions: ${networkData.nodes.junctions}</div>
+                <div>• Reservoirs: ${networkData.nodes.reservoirs}</div>
+                <div>• Tanks: ${networkData.nodes.tanks}</div>
+                <div class="mt-2">Total Links: ${networkData.links.total}</div>
+                <div>• Pipes: ${networkData.links.pipes}</div>
+                <div>• Pumps: ${networkData.links.pumps}</div>
+                <div>• Valves: ${networkData.links.valves}</div>
+                <div class="mt-2">Total Length: ${networkData.network_stats && networkData.network_stats.total_length ? networkData.network_stats.total_length.toFixed(2) : 'N/A'} m</div>
             `;
         }
 
@@ -575,13 +597,13 @@
             if (!currentInpFile) return;
 
             const infoContainer = document.getElementById('network-info');
-            infoContainer.innerHTML = '<div class="animate-pulse">加载网络信息...</div>';
+            infoContainer.innerHTML = '<div class="animate-pulse">Loading network info...</div>';
 
             try {
                 await ensureNetworkDataLoaded();
             } catch (error) {
-                console.error('获取网络信息失败:', error);
-                infoContainer.innerHTML = '<div class="text-red-400">加载失败</div>';
+                console.error('Failed to get network info:', error);
+                infoContainer.innerHTML = '<div class="text-red-400">Load failed</div>';
             }
         }
 
@@ -589,11 +611,11 @@
         function updateLoadButton() {
             const loadBtn = document.getElementById('load-topology-btn');
             loadBtn.disabled = !currentInpFile;
-            
+
             if (currentInpFile) {
-                loadBtn.textContent = currentCsvFile ? '🗺️ 加载拓扑图 (含数据)' : '🗺️ 加载拓扑图';
+                loadBtn.textContent = currentCsvFile ? '🗺️ Load Topology (with data)' : '🗺️ Load Topology';
             } else {
-                loadBtn.textContent = '🗺️ 加载拓扑图';
+                loadBtn.textContent = '🗺️ Load Topology';
             }
         }
 
@@ -601,38 +623,38 @@
         function initializeVisualization() {
             svg = d3.select('#network-svg');
             g = svg.append('g');
-            
+
             // Setup zoom
             zoom = d3.zoom()
                 .scaleExtent([0.001, 200])
                 .on('zoom', (event) => {
                     g.attr('transform', event.transform);
                 });
-            
+
             svg.call(zoom);
-            
+
             // Zoom controls
             document.getElementById('zoom-in-btn').addEventListener('click', () => {
                 svg.transition().call(zoom.scaleBy, 1.5);
             });
-            
+
             document.getElementById('zoom-out-btn').addEventListener('click', () => {
                 svg.transition().call(zoom.scaleBy, 1 / 1.5);
             });
-            
+
             document.getElementById('reset-view-btn').addEventListener('click', () => {
                 resetViewToCenter();
             });
-            
+
             // Load topology button
             document.getElementById('load-topology-btn').addEventListener('click', loadTopology);
 
             // Time slider
             document.getElementById('time-slider').addEventListener('input', (e) => {
                 currentTimeStep = parseFloat(e.target.value);
-                document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} 小时`;
+                document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} Hours`;
                 updateVisualizationData();
-                // 确保大小设置不被覆盖
+                // Ensure size settings are not overwritten
                 updateNodeSizes();
                 updateLinkSizes();
             });
@@ -684,22 +706,22 @@
             loadingIndicator.innerHTML = `
                 <div class="text-center">
                     <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <div class="text-xl text-gray-400">正在加载网络数据...</div>
+                    <div class="text-xl text-gray-400">Loading network data...</div>
                 </div>
             `;
 
             try {
-                // 确保网络数据已加载
+                // Ensure network data is loaded
                 if (!networkData) {
-                    console.log('网络数据未加载，正在获取...');
+                    console.log('Network data not loaded, fetching...');
                     await ensureNetworkDataLoaded();
                 }
 
-                // 更新加载状态
+                // Update loading status
                 loadingIndicator.innerHTML = `
                     <div class="text-center">
                         <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <div class="text-xl text-gray-400">正在生成拓扑图...</div>
+                        <div class="text-xl text-gray-400">Generating topology...</div>
                     </div>
                 `;
 
@@ -727,11 +749,11 @@
                     `${currentInpFile.filename}${currentCsvFile ? ' + ' + currentCsvFile.filename : ''}`;
 
             } catch (error) {
-                console.error('加载拓扑图失败:', error);
+                console.error('Failed to load topology:', error);
                 loadingIndicator.innerHTML = `
                     <div class="text-center">
                         <div class="text-6xl mb-4 text-red-500">❌</div>
-                        <div class="text-xl text-red-400">加载失败</div>
+                        <div class="text-xl text-red-400">Load failed</div>
                         <div class="text-sm text-gray-500 mt-2">${error.message}</div>
                     </div>
                 `;
@@ -752,7 +774,7 @@
                 if (data.success) {
                     csvData = data.csv_data;
 
-                    // 设置时间滑条范围
+                    // Set time slider range
                     const timeSlider = document.getElementById('time-slider');
                     const timeSteps = csvData.time_steps || Object.keys(csvData.data_by_time || {}).map(t => parseFloat(t)).sort((a, b) => a - b);
                     if (timeSteps && timeSteps.length > 0) {
@@ -761,33 +783,33 @@
                         timeSlider.value = timeSteps[0];
                         currentTimeStep = timeSteps[0];
 
-                        // 设置步长为时间步之间的最小间隔
+                        // Set step to minimum interval between time steps
                         if (timeSteps.length > 1) {
                             const minStep = Math.min(...timeSteps.slice(1).map((t, i) => t - timeSteps[i]));
                             timeSlider.step = minStep;
                         }
 
-                        document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} 小时`;
+                        document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} Hours`;
                     }
 
-                    // 显示时间控制
+                    // Show time controls
                     document.getElementById('time-controls').style.display = 'flex';
 
-                    // 显示数据颜色图例
+                    // Show data legend
                     document.getElementById('data-legend').style.display = 'block';
 
-                    // 自动显示图例面板
+                    // Automatically show legend panel
                     document.getElementById('legend-panel').style.display = 'block';
 
-                    // 立即更新可视化数据
+                    // Update visualization data immediately
                     updateVisualizationData();
 
-                    console.log('CSV数据加载成功:', csvData.summary);
+                    console.log('CSV data loaded successfully:', csvData.summary);
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
-                console.error('加载CSV数据失败:', error);
+                console.error('Failed to load CSV data:', error);
                 csvData = null;
                 document.getElementById('time-controls').style.display = 'none';
             }
@@ -799,17 +821,17 @@
             g.selectAll('*').remove();
 
             if (!networkData || !networkData.topology) {
-                throw new Error('网络拓扑数据不可用');
+                throw new Error('Network topology data unavailable');
             }
 
             const nodes = networkData.topology.nodes;
             const links = networkData.topology.links;
 
             if (nodes.length === 0) {
-                throw new Error('网络中没有节点数据');
+                throw new Error('Network has no node data');
             }
 
-            // 计算坐标范围
+            // Calculate coordinate range
             const xCoords = nodes.map(n => n.coordinates[0]).filter(x => x !== undefined && x !== null);
             const yCoords = nodes.map(n => n.coordinates[1]).filter(y => y !== undefined && y !== null);
 
@@ -818,38 +840,38 @@
             let yMin = Math.min(...yCoords);
             let yMax = Math.max(...yCoords);
 
-            // 如果没有有效坐标，使用默认范围
+            // If no valid coordinates, use default range
             if (!isFinite(xMin) || !isFinite(xMax) || !isFinite(yMin) || !isFinite(yMax)) {
                 xMin = 0; xMax = 1000; yMin = 0; yMax = 1000;
             }
 
-            // 添加边距
+            // Add margin
             const margin = Math.max((xMax - xMin), (yMax - yMin)) * 0.1;
             xMin -= margin; xMax += margin;
             yMin -= margin; yMax += margin;
 
-            // 获取SVG尺寸
+            // Get SVG dimensions
             const svgRect = svg.node().getBoundingClientRect();
             const svgWidth = svgRect.width;
             const svgHeight = svgRect.height;
 
-            // 计算缩放比例
+            // Calculate scale
             const scaleX = svgWidth / (xMax - xMin);
             const scaleY = svgHeight / (yMax - yMin);
-            const scale = Math.min(scaleX, scaleY) * 0.9; // 留一些边距
+            const scale = Math.min(scaleX, scaleY) * 0.9; // Leave some margin
 
-            // 准备数据
+            // Prepare data
             const nodeData = nodes.map(node => {
                 let x = node.coordinates[0];
                 let y = node.coordinates[1];
 
-                // 如果没有坐标，随机分配
+                // If no coordinates, assign randomly
                 if (x === undefined || x === null || y === undefined || y === null) {
                     x = xMin + Math.random() * (xMax - xMin);
                     y = yMin + Math.random() * (yMax - yMin);
                 }
 
-                // 转换坐标系（Y轴翻转，因为SVG的Y轴向下）
+                // Transform coordinates (Flip Y axis as SVG Y axis is down)
                 const transformedX = (x - xMin) * scale;
                 const transformedY = svgHeight - (y - yMin) * scale;
 
@@ -877,11 +899,11 @@
                 ...link
             }));
 
-            // 创建节点ID到数据的映射
+            // Create node ID to data mapping
             const nodeMap = new Map();
             nodeData.forEach(node => nodeMap.set(node.id, node));
 
-            // 创建管段
+            // Create links
             const linkGroup = g.append('g').attr('class', 'links');
             linkElements = linkGroup.selectAll('line')
                 .data(linkData)
@@ -911,7 +933,7 @@
                 .on('mouseout', hideTooltip)
                 .on('click', showLinkDetails);
 
-            // 创建节点
+            // Create nodes
             nodeElements = g.append('g')
                 .attr('class', 'nodes')
                 .selectAll('circle')
@@ -928,7 +950,7 @@
                 .on('mouseout', hideTooltip)
                 .on('click', showNodeDetails);
 
-            // 添加节点标签
+            // Add node labels
             nodeLabels = g.append('g')
                 .attr('class', 'node-labels')
                 .selectAll('text')
@@ -938,10 +960,10 @@
                 .attr('y', d => d.y + 4)
                 .attr('font-size', '10px')
                 .attr('fill', '#9ca3af')
-                .style('display', 'none') // 默认隐藏
+                .style('display', 'none') // Hidden by default
                 .text(d => d.id);
 
-            // 添加管段标签
+            // Add link labels
             linkLabels = g.append('g')
                 .attr('class', 'link-labels')
                 .selectAll('text')
@@ -960,10 +982,10 @@
                 .attr('font-size', '9px')
                 .attr('fill', '#6b7280')
                 .attr('text-anchor', 'middle')
-                .style('display', 'none') // 默认隐藏
+                .style('display', 'none') // Hidden by default
                 .text(d => d.id);
 
-            // 自动缩放到合适的视图
+            // Auto zoom to fit view
             const bounds = g.node().getBBox();
             const fullWidth = svgWidth;
             const fullHeight = svgHeight;
@@ -972,13 +994,13 @@
             const midX = bounds.x + width / 2;
             const midY = bounds.y + height / 2;
 
-            if (width == 0 || height == 0) return; // 没有内容时返回
+            if (width == 0 || height == 0) return; // Return if no content
 
-            // 计算缩放比例
+            // Calculate scale to fit view
             const scaleToFit = 0.9 / Math.max(width / fullWidth, height / fullHeight);
             const translate = [fullWidth / 2 - scaleToFit * midX, fullHeight / 2 - scaleToFit * midY];
 
-            // 应用初始变换
+            // Apply initial transform
             svg.call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scaleToFit));
         }
 
@@ -987,7 +1009,7 @@
             if (!g || !svg) return;
 
             try {
-                // 获取内容边界
+                // Get content bounds
                 const bounds = g.node().getBBox();
                 const svgRect = svg.node().getBoundingClientRect();
                 const fullWidth = svgRect.width;
@@ -998,20 +1020,20 @@
                 const midY = bounds.y + height / 2;
 
                 if (width == 0 || height == 0) {
-                    // 如果没有内容，只是居中
+                    // If no content, just center
                     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
                     return;
                 }
 
-                // 计算缩放比例以适应视图
+                // Calculate scale to fit view
                 const scaleToFit = 0.9 / Math.max(width / fullWidth, height / fullHeight);
                 const translate = [fullWidth / 2 - scaleToFit * midX, fullHeight / 2 - scaleToFit * midY];
 
-                // 应用变换，带动画效果
+                // Apply transform with animation
                 svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scaleToFit));
             } catch (error) {
-                console.warn('重置视图失败，使用简单重置:', error);
-                // 如果出错，回退到简单的重置
+                console.warn('Reset view failed, using simple reset:', error);
+                // Fallback to simple reset on error
                 svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
             }
         }
@@ -1020,28 +1042,28 @@
         function showNodeTooltip(event, d) {
             const tooltip = document.getElementById('tooltip');
 
-            // 获取当前时间步的动态数据
+            // Get dynamic data for current time step
             let dynamicData = '';
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (csvData && dataSource && currentTimeStep !== null) {
                 const timeData = getTimeData(currentTimeStep);
                 if (timeData) {
-                    // 尝试获取节点的动态数据
+                    // Try to get node dynamic data
                     const pressure = getNodeValue(d.id, timeData.node_pressure);
                     const demand = getNodeValue(d.id, timeData.node_demand);
 
                     if (pressure !== undefined || demand !== undefined) {
-                        // 计算总水头 = 压力 + 高程
+                        // Calculate total head = pressure + elevation
                         const totalHead = (pressure !== undefined && d.elevation !== undefined)
                             ? pressure + d.elevation
                             : undefined;
 
                         dynamicData = `
                             <div class="border-t border-gray-600 mt-2 pt-2">
-                                <div class="text-yellow-300 font-medium">时间 ${currentTimeStep.toFixed(1)} 小时:</div>
-                                ${pressure !== undefined ? `<div>压力: ${pressure.toFixed(2)} m</div>` : ''}
-                                ${totalHead !== undefined ? `<div>总水头: ${totalHead.toFixed(2)} m</div>` : ''}
-                                ${demand !== undefined ? `<div>实际需水量: ${demand.toFixed(3)} L/s</div>` : ''}
+                                <div class="text-yellow-300 font-medium">Time ${currentTimeStep.toFixed(1)} Hours:</div>
+                                ${pressure !== undefined ? `<div>Pressure: ${pressure.toFixed(2)} m</div>` : ''}
+                                ${totalHead !== undefined ? `<div>Total Head: ${totalHead.toFixed(2)} m</div>` : ''}
+                                ${demand !== undefined ? `<div>Actual Demand: ${demand.toFixed(3)} L/s</div>` : ''}
                             </div>
                         `;
                     }
@@ -1051,10 +1073,10 @@
             tooltip.innerHTML = `
                 <div class="font-semibold">${d.type.toUpperCase()}: ${d.id}</div>
                 <div class="text-xs mt-1">
-                    <div>高程: ${d.elevation?.toFixed(2) || 'N/A'} m</div>
-                    ${d.base_demand !== undefined ? `<div>基础需水量: ${d.base_demand.toFixed(3)} L/s</div>` : ''}
-                    ${d.head !== undefined ? `<div>总水头: ${d.head.toFixed(2)} m</div>` : ''}
-                    ${d.init_level !== undefined ? `<div>初始水位: ${d.init_level.toFixed(2)} m</div>` : ''}
+                    <div>Elevation: ${d.elevation?.toFixed(2) || 'N/A'} m</div>
+                    ${d.base_demand !== undefined ? `<div>Base Demand: ${d.base_demand.toFixed(3)} L/s</div>` : ''}
+                    ${d.head !== undefined ? `<div>Total Head: ${d.head.toFixed(2)} m</div>` : ''}
+                    ${d.init_level !== undefined ? `<div>Initial Level: ${d.init_level.toFixed(2)} m</div>` : ''}
                     ${dynamicData}
                 </div>
             `;
@@ -1067,22 +1089,22 @@
         function showLinkTooltip(event, d) {
             const tooltip = document.getElementById('tooltip');
 
-            // 获取当前时间步的动态数据
+            // Get dynamic data for current time step
             let dynamicData = '';
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (csvData && dataSource && currentTimeStep !== null) {
                 const timeData = getTimeData(currentTimeStep);
                 if (timeData) {
-                    // 尝试获取管段的动态数据
+                    // Try to get link dynamic data
                     const flow = getLinkValue(d.id, timeData.link_flow);
                     const velocity = getLinkValue(d.id, timeData.link_velocity);
 
                     if (flow !== undefined || velocity !== undefined) {
                         dynamicData = `
                             <div class="border-t border-gray-600 mt-2 pt-2">
-                                <div class="text-yellow-300 font-medium">时间 ${currentTimeStep.toFixed(1)} 小时:</div>
-                                ${flow !== undefined ? `<div>流量: ${flow.toFixed(4)} L/s</div>` : ''}
-                                ${velocity !== undefined ? `<div>流速: ${velocity.toFixed(3)} m/s</div>` : ''}
+                                <div class="text-yellow-300 font-medium">Time ${currentTimeStep.toFixed(1)} Hours:</div>
+                                ${flow !== undefined ? `<div>Flow: ${flow.toFixed(4)} L/s</div>` : ''}
+                                ${velocity !== undefined ? `<div>Velocity: ${velocity.toFixed(3)} m/s</div>` : ''}
                             </div>
                         `;
                     }
@@ -1092,11 +1114,11 @@
             tooltip.innerHTML = `
                 <div class="font-semibold">${d.type.toUpperCase()}: ${d.id}</div>
                 <div class="text-xs mt-1">
-                    <div>起点: ${d.source.id || d.source}</div>
-                    <div>终点: ${d.target.id || d.target}</div>
-                    ${d.length !== undefined ? `<div>管长: ${d.length.toFixed(2)} m</div>` : ''}
-                    ${d.diameter !== undefined ? `<div>管径: ${d.diameter.toFixed(0)} mm</div>` : ''}
-                    ${d.roughness !== undefined ? `<div>粗糙度: ${d.roughness}</div>` : ''}
+                    <div>Start Node: ${d.source.id || d.source}</div>
+                    <div>End Node: ${d.target.id || d.target}</div>
+                    ${d.length !== undefined ? `<div>Length: ${d.length.toFixed(2)} m</div>` : ''}
+                    ${d.diameter !== undefined ? `<div>Diameter: ${d.diameter.toFixed(0)} mm</div>` : ''}
+                    ${d.roughness !== undefined ? `<div>Roughness: ${d.roughness}</div>` : ''}
                     ${dynamicData}
                 </div>
             `;
@@ -1112,11 +1134,11 @@
 
         // Helper function to get time data with multiple format attempts
         function getTimeData(timeStep) {
-            // 检查数据结构
+            // Check data structure
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (!dataSource) return null;
 
-            // 尝试多种时间步格式匹配
+            // Try matching multiple time step formats
             let timeData = dataSource[timeStep.toString()];
             if (!timeData) {
                 timeData = dataSource[Math.floor(timeStep).toString()];
@@ -1131,7 +1153,7 @@
         function getNodeValue(nodeId, dataObject) {
             if (!dataObject) return undefined;
 
-            // 尝试多种ID格式匹配
+            // Try matching multiple ID formats
             let value = dataObject[nodeId];
             if (value === undefined) {
                 value = dataObject[nodeId + '.0'];
@@ -1147,7 +1169,7 @@
         function getLinkValue(linkId, dataObject) {
             if (!dataObject) return undefined;
 
-            // 尝试多种ID格式匹配
+            // Try matching multiple ID formats
             let value = dataObject[linkId];
             if (value === undefined) {
                 value = dataObject[linkId + '.0'];
@@ -1165,7 +1187,7 @@
 
             // Reset node colors to default type colors
             nodeElements.style('fill', d => {
-                switch(d.type) {
+                switch (d.type) {
                     case 'reservoir': return '#10b981'; // green
                     case 'tank': return '#f59e0b';      // yellow
                     case 'junction': return '#3b82f6';  // blue
@@ -1175,7 +1197,7 @@
 
             // Reset link colors to default type colors
             linkElements.style('stroke', d => {
-                switch(d.type) {
+                switch (d.type) {
                     case 'pump': return '#ef4444';      // red
                     case 'valve': return '#8b5cf6';     // purple
                     case 'pipe': return '#6b7280';      // gray
@@ -1183,14 +1205,14 @@
                 }
             });
 
-            console.log('可视化颜色已重置为默认拓扑颜色');
+            console.log('Visualization colors reset to default');
         }
 
         // Show detailed node information
         function showNodeDetails(event, d) {
-            let details = `节点详细信息:\n\nID: ${d.id}\n类型: ${d.type}\n高程: ${d.elevation?.toFixed(2) || 'N/A'} m\n基础需水量: ${d.base_demand?.toFixed(3) || 'N/A'} L/s\n总水头: ${d.head?.toFixed(2) || 'N/A'} m`;
+            let details = `Node Details:\n\nID: ${d.id}\nType: ${d.type}\nElevation: ${d.elevation?.toFixed(2) || 'N/A'} m\nBase Demand: ${d.base_demand?.toFixed(3) || 'N/A'} L/s\nTotal Head: ${d.head?.toFixed(2) || 'N/A'} m`;
 
-            // 添加时间相关数据
+            // Add time-related data
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (csvData && dataSource && currentTimeStep !== null) {
                 const timeData = getTimeData(currentTimeStep);
@@ -1198,19 +1220,19 @@
                     const pressure = getNodeValue(d.id, timeData.node_pressure);
                     const demand = getNodeValue(d.id, timeData.node_demand);
 
-                    details += `\n\n=== 时间 ${currentTimeStep.toFixed(1)} 小时 ===`;
-                    if (pressure !== undefined) details += `\n压力: ${pressure.toFixed(2)} m`;
+                    details += `\n\n=== Time ${currentTimeStep.toFixed(1)} Hours ===`;
+                    if (pressure !== undefined) details += `\nPressure: ${pressure.toFixed(2)} m`;
 
-                    // 计算总水头 = 压力 + 高程
+                    // Calculate total head = pressure + elevation
                     if (pressure !== undefined && d.elevation !== undefined) {
                         const totalHead = pressure + d.elevation;
-                        details += `\n总水头: ${totalHead.toFixed(2)} m`;
+                        details += `\nTotal Head: ${totalHead.toFixed(2)} m`;
                     }
 
-                    if (demand !== undefined) details += `\n实际需水量: ${demand.toFixed(3)} L/s`;
+                    if (demand !== undefined) details += `\nActual Demand: ${demand.toFixed(3)} L/s`;
 
                     if (pressure === undefined && demand === undefined) {
-                        details += `\n(该时间步无动态数据)`;
+                        details += `\n(No dynamic data for this time step)`;
                     }
                 }
             }
@@ -1220,9 +1242,9 @@
 
         // Show detailed link information
         function showLinkDetails(event, d) {
-            let details = `管段详细信息:\n\nID: ${d.id}\n类型: ${d.type}\n起点: ${d.source.id || d.source}\n终点: ${d.target.id || d.target}\n管长: ${d.length?.toFixed(2) || 'N/A'} m\n管径: ${d.diameter?.toFixed(0) || 'N/A'} mm\n粗糙度: ${d.roughness || 'N/A'}`;
+            let details = `Link Details:\n\nID: ${d.id}\nType: ${d.type}\nStart Node: ${d.source.id || d.source}\nEnd Node: ${d.target.id || d.target}\nLength: ${d.length?.toFixed(2) || 'N/A'} m\nDiameter: ${d.diameter?.toFixed(0) || 'N/A'} mm\nRoughness: ${d.roughness || 'N/A'}`;
 
-            // 添加时间相关数据
+            // Add time-related data
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (csvData && dataSource && currentTimeStep !== null) {
                 const timeData = getTimeData(currentTimeStep);
@@ -1230,12 +1252,12 @@
                     const flow = getLinkValue(d.id, timeData.link_flow);
                     const velocity = getLinkValue(d.id, timeData.link_velocity);
 
-                    details += `\n\n=== 时间 ${currentTimeStep.toFixed(1)} 小时 ===`;
-                    if (flow !== undefined) details += `\n流量: ${flow.toFixed(4)} L/s`;
-                    if (velocity !== undefined) details += `\n流速: ${velocity.toFixed(3)} m/s`;
+                    details += `\n\n=== Time ${currentTimeStep.toFixed(1)} Hours ===`;
+                    if (flow !== undefined) details += `\nFlow: ${flow.toFixed(4)} L/s`;
+                    if (velocity !== undefined) details += `\nVelocity: ${velocity.toFixed(3)} m/s`;
 
                     if (flow === undefined && velocity === undefined) {
-                        details += `\n(该时间步无动态数据)`;
+                        details += `\n(No dynamic data for this time step)`;
                     }
                 }
             }
@@ -1247,7 +1269,7 @@
         function updateVisualizationData() {
             const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
             if (!csvData || !dataSource || !nodeElements || !linkElements) {
-                console.log('数据可视化更新失败: 缺少必要数据', {
+                console.log('Data visualization update failed: Missing required data', {
                     csvData: !!csvData,
                     data_by_time: !!dataSource,
                     nodeElements: !!nodeElements,
@@ -1256,72 +1278,72 @@
                 return;
             }
 
-            // 使用辅助函数获取时间数据
+            // Use helper function to get time data
             const timeData = getTimeData(currentTimeStep);
             if (!timeData) {
-                console.log('时间步数据不存在:', currentTimeStep, '可用时间步:', Object.keys(dataSource));
+                console.log('Time step data does not exist:', currentTimeStep, 'Available time steps:', Object.keys(dataSource));
                 return;
             }
 
-            console.log('开始更新可视化数据:', {
+            console.log('Starting visualization data update:', {
                 timeStep: currentTimeStep,
                 nodePressureCount: Object.keys(timeData.node_pressure || {}).length,
                 linkFlowCount: Object.keys(timeData.link_flow || {}).length
             });
 
-            // 更新节点颜色基于压力值
-            nodeElements.style('fill', function(d) {
-                // 尝试多种ID格式匹配
+            // Update node colors based on pressure
+            nodeElements.style('fill', function (d) {
+                // Try matching multiple ID formats
                 let pressure = timeData.node_pressure[d.id];
                 if (pressure === undefined) {
-                    // 尝试添加.0后缀
+                    // Try adding .0 suffix
                     pressure = timeData.node_pressure[d.id + '.0'];
                 }
                 if (pressure === undefined) {
-                    // 尝试移除.0后缀
+                    // Try removing .0 suffix
                     const idWithoutSuffix = d.id.replace('.0', '');
                     pressure = timeData.node_pressure[idWithoutSuffix];
                 }
 
                 if (pressure !== undefined) {
-                    // 压力值映射到颜色 (蓝色=低压，红色=高压)
-                    const normalizedPressure = Math.min(1, Math.max(0, pressure / 50)); // 调整最大压力为50m
-                    const hue = (1 - normalizedPressure) * 240; // 240=蓝色, 0=红色
+                    // Map pressure to color (Blue=Low, Red=High)
+                    const normalizedPressure = Math.min(1, Math.max(0, pressure / 50)); // Adjust max pressure to 50m
+                    const hue = (1 - normalizedPressure) * 240; // 240=Blue, 0=Red
                     return `hsl(${hue}, 70%, 50%)`;
                 }
-                // 保持原有的节点类型颜色
+                // Keep original node type colors
                 if (d.type === 'reservoir') return '#10b981';
                 if (d.type === 'tank') return '#f59e0b';
-                return '#3b82f6'; // junction默认蓝色
+                return '#3b82f6'; // Junction default blue
             });
 
-            // 更新管段颜色基于流量
-            linkElements.style('stroke', function(d) {
-                // 尝试多种ID格式匹配
+            // Update link colors based on flow
+            linkElements.style('stroke', function (d) {
+                // Try matching multiple ID formats
                 let flow = timeData.link_flow[d.id];
                 if (flow === undefined) {
-                    // 尝试添加.0后缀
+                    // Try adding .0 suffix
                     flow = timeData.link_flow[d.id + '.0'];
                 }
                 if (flow === undefined) {
-                    // 尝试移除.0后缀
+                    // Try removing .0 suffix
                     const idWithoutSuffix = d.id.replace('.0', '');
                     flow = timeData.link_flow[idWithoutSuffix];
                 }
 
                 if (flow !== undefined) {
                     const absFlow = Math.abs(flow);
-                    const normalizedFlow = Math.min(1, absFlow / 200); // 调整最大流量为200 L/s
-                    const intensity = Math.floor(normalizedFlow * 200 + 55); // 确保颜色可见
+                    const normalizedFlow = Math.min(1, absFlow / 200); // Adjust max flow to 200 L/s
+                    const intensity = Math.floor(normalizedFlow * 200 + 55); // Ensure color visibility
                     return flow >= 0 ? `rgb(0, ${intensity}, 0)` : `rgb(${intensity}, 0, 0)`;
                 }
-                // 保持原有的管段类型颜色
+                // Keep original link type colors
                 if (d.type === 'pump') return '#ef4444';
                 if (d.type === 'valve') return '#8b5cf6';
-                return '#6b7280'; // pipe默认灰色
+                return '#6b7280'; // Pipe default gray
             });
 
-            console.log('可视化数据更新完成');
+            console.log('Visualization data update complete');
         }
 
         // Update node sizes
@@ -1338,7 +1360,7 @@
         function updateLinkSizes() {
             if (!linkElements) return;
 
-            linkElements.attr('stroke-width', function(d) {
+            linkElements.attr('stroke-width', function (d) {
                 const baseWidth = d.type === 'pump' ? 4 : d.type === 'valve' ? 3 : Math.max(1, Math.min(8, (d.diameter || 100) / 50));
                 return baseWidth * linkSizeScale;
             });
@@ -1356,4 +1378,5 @@
             linkLabels.style('display', showLinkIds ? 'block' : 'none');
         }
     </script>
+
 </html>

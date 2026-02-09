@@ -1,6 +1,6 @@
 """
-智能体执行器
-负责根据LLM分析结果协调执行不同的智能体
+Agent Executor
+Responsible for coordinating execution of different agents based on LLM analysis results
 """
 import os
 import json
@@ -9,56 +9,56 @@ from datetime import datetime
 from .base_agent import BaseAgent
 
 class AgentExecutor(BaseAgent):
-    """智能体执行器"""
+    """Agent executor"""
     
     def __init__(self, hydro_sim, partition_sim, sensor_placement, leak_detection):
         super().__init__("AgentExecutor")
         
-        # 注册各个智能体
+        # Register agents
         self.agents = {
-            "管网分析": hydro_sim,
-            "管网分区": partition_sim,
-            "传感器布置": sensor_placement,
-            "漏损模型训练": leak_detection,
-            "漏损检测": leak_detection,
-            "水力仿真": hydro_sim,
-            "拓扑分析": hydro_sim
+            "Network analysis": hydro_sim,
+            "Network partition": partition_sim,
+            "Sensor placement": sensor_placement,
+            "Leak model training": leak_detection,
+            "Leak detection": leak_detection,
+            "Hydraulic simulation": hydro_sim,
+            "Topology analysis": hydro_sim
         }
         
-        # 设置OpenAI API配置
-        openai.api_base = "https://api.chatanywhere.tech"
-        openai.api_key = "sk-eHk6ICs2KGZ2M2xJ0AZK9DJu3DVqgO91EnatH7FsUokii7HH"
+        # Set OpenAI API configuration
+        openai.api_base = ""
+        openai.api_key = ""
     
     def execute_step(self, step_name: str, step_info: dict, conversation_id: str, user_message: str):
-        """执行单个步骤"""
+        """Execute single step"""
         try:
-            self.log_info(f"开始执行步骤: {step_name}")
+            self.log_info(f"Starting execution step: {step_name}")
             
-            # 获取对应的智能体
+            # Get corresponding agent
             agent = self.agents.get(step_name)
             if not agent:
                 return {
                     'success': False,
-                    'error': f'未找到对应的智能体: {step_name}',
+                    'error': f'Agent not found: {step_name}',
                     'step_name': step_name
                 }
             
-            # 根据步骤类型执行不同的逻辑
-            if step_name == "管网分析":
+            # Execute different logic based on step type
+            if step_name == "Network analysis":
                 return self._execute_network_analysis(agent, step_info, conversation_id, user_message)
-            elif step_name == "管网分区":
+            elif step_name == "Network partition":
                 return self._execute_partition_analysis(agent, step_info, conversation_id, user_message)
-            elif step_name == "传感器布置":
+            elif step_name == "Sensor placement":
                 return self._execute_sensor_placement(agent, step_info, conversation_id, user_message)
-            elif step_name == "漏损模型训练":
+            elif step_name == "Leak model training":
                 return self._execute_leak_training(agent, step_info, conversation_id, user_message)
-            elif step_name == "漏损检测":
+            elif step_name == "Leak detection":
                 return self._execute_leak_detection(agent, step_info, conversation_id, user_message)
             else:
                 return self._execute_generic_step(agent, step_info, conversation_id, user_message)
                 
         except Exception as e:
-            self.log_error(f"执行步骤失败 {step_name}: {e}")
+            self.log_error(f"Execution step failed {step_name}: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -66,56 +66,56 @@ class AgentExecutor(BaseAgent):
             }
     
     def _execute_network_analysis(self, agent, step_info, conversation_id, user_message):
-        """执行管网分析"""
+        """Execute network analysis"""
         inp_file = step_info.get('input_file')
         if not inp_file:
             return {
                 'success': False,
-                'error': '缺少INP文件',
-                'step_name': '管网分析'
+                'error': 'Missing INP file',
+                'step_name': 'Network analysis'
             }
         
-        # 调用水力仿真智能体
+        # Call hydraulic simulation agent
         result = agent.process(inp_file, user_message, conversation_id)
         
         if result['success']:
-            self.log_info("管网分析执行成功")
+            self.log_info("Network analysis execution success")
             return {
                 'success': True,
-                'step_name': '管网分析',
+                'step_name': 'Network analysis',
                 'result': result,
                 'agent_type': 'hydro_sim'
             }
         else:
             return {
                 'success': False,
-                'error': result.get('response', '管网分析失败'),
-                'step_name': '管网分析'
+                'error': result.get('response', 'Network analysis failed'),
+                'step_name': 'Network analysis'
             }
     
     def _execute_partition_analysis(self, agent, step_info, conversation_id, user_message):
-        """执行管网分区"""
+        """Execute network partition"""
         inp_file = step_info.get('input_file')
         if not inp_file:
             return {
                 'success': False,
-                'error': '缺少INP文件',
-                'step_name': '管网分区'
+                'error': 'Missing INP file',
+                'step_name': 'Network partition'
             }
         
-        # 构建分区请求消息
+        # Build partition request message
         partition_message = user_message
-        if "分区" not in user_message:
-            partition_message = f"{user_message} 请进行管网分区分析"
+        if "Partition" not in user_message:
+            partition_message = f"{user_message} Please perform network partition analysis"
         
-        # 调用分区智能体
+        # Call partition agent
         result = agent.process(inp_file, partition_message, conversation_id)
         
         if result['success']:
-            self.log_info("管网分区执行成功")
+            self.log_info("Network partition execution success")
             return {
                 'success': True,
-                'step_name': '管网分区',
+                'step_name': 'Network partition',
                 'result': result,
                 'agent_type': 'partition_sim',
                 'csv_file': result.get('csv_info', {}).get('filepath')
@@ -123,105 +123,105 @@ class AgentExecutor(BaseAgent):
         else:
             return {
                 'success': False,
-                'error': result.get('response', '管网分区失败'),
-                'step_name': '管网分区'
+                'error': result.get('response', 'Network partition failed'),
+                'step_name': 'Network partition'
             }
     
     def _execute_sensor_placement(self, agent, step_info, conversation_id, user_message):
-        """执行传感器布置"""
+        """Execute sensor placement"""
         try:
             inp_file = step_info.get('input_file')
-            # 优先使用执行计划中指定的分区文件，否则查找现有文件
+            # Prefer using partition file specified in execution plan, otherwise find existing files
             partition_csv = step_info.get('partition_file') or self._find_partition_csv(conversation_id)
 
-            self.log_info(f"传感器布置参数检查: inp_file={inp_file}, partition_csv={partition_csv}")
+            self.log_info(f"Sensor placement parameter check: inp_file={inp_file}, partition_csv={partition_csv}")
 
-            # 检查是否为基于现有分区的增量执行
+            # Check if this is incremental execution based on existing partition
             if step_info.get('partition_file'):
-                self.log_info(f"使用指定的分区文件: {partition_csv}")
+                self.log_info(f"Using specified partition file: {partition_csv}")
             elif partition_csv:
-                self.log_info(f"使用检测到的分区文件: {partition_csv}")
+                self.log_info(f"Using detected partition file: {partition_csv}")
 
             if not inp_file:
                 return {
                     'success': False,
-                    'error': '缺少INP文件',
-                    'step_name': '传感器布置'
+                    'error': 'Missing INP file',
+                    'step_name': 'Sensor placement'
                 }
 
             if not partition_csv:
                 return {
                     'success': False,
-                    'error': '缺少分区CSV文件，请先进行管网分区',
-                    'step_name': '传感器布置'
+                    'error': 'Missing partition CSV file, please perform network partition first',
+                    'step_name': 'Sensor placement'
                 }
 
-            # 构建传感器布置请求消息
+            # Build sensor placement request message
             sensor_message = user_message
-            if "传感器" not in user_message and "监测" not in user_message:
-                sensor_message = f"{user_message} 请进行传感器布置优化"
+            if "sensor" not in user_message.lower() and "monitor" not in user_message.lower():
+                sensor_message = f"{user_message} Please perform sensor placement optimization"
 
-            self.log_info(f"开始调用传感器布置智能体: {sensor_message}")
+            self.log_info(f"Starting to call sensor placement agent: {sensor_message}")
 
-            # 调用传感器布置智能体
+            # Call sensor placement agent
             result = agent.process(inp_file, partition_csv, sensor_message, conversation_id)
 
-            self.log_info(f"传感器布置智能体调用完成，结果: {result.get('success', False)}")
+            self.log_info(f"Sensor placement agent call complete, result: {result.get('success', False)}")
 
             if result['success']:
-                self.log_info("传感器布置执行成功")
+                self.log_info("Sensor placement execution success")
                 return {
                     'success': True,
-                    'step_name': '传感器布置',
+                    'step_name': 'Sensor placement',
                     'result': result,
                     'agent_type': 'sensor_placement',
                     'csv_file': result.get('csv_info', {}).get('filepath')
                 }
             else:
-                self.log_error(f"传感器布置执行失败: {result.get('response', '未知错误')}")
+                self.log_error(f"Sensor placement execution failed: {result.get('response', 'Unknown error')}")
                 return {
                     'success': False,
-                    'error': result.get('response', '传感器布置失败'),
-                    'step_name': '传感器布置'
+                    'error': result.get('response', 'Sensor placement failed'),
+                    'step_name': 'Sensor placement'
                 }
 
         except Exception as e:
-            error_msg = f"传感器布置执行异常: {str(e)}"
+            error_msg = f"Sensor placement execution error: {str(e)}"
             self.log_error(error_msg)
             return {
                 'success': False,
                 'error': error_msg,
-                'step_name': '传感器布置'
+                'step_name': 'Sensor placement'
             }
     
     def _execute_leak_training(self, agent, step_info, conversation_id, user_message):
-        """执行漏损模型训练"""
+        """Execute leak model training"""
         inp_file = step_info.get('input_file')
         if not inp_file:
             return {
                 'success': False,
-                'error': '缺少INP文件',
-                'step_name': '漏损模型训练'
+                'error': 'Missing INP file',
+                'step_name': 'Leak model training'
             }
         
-        # 提取训练参数
-        num_scenarios = 50  # 默认值
-        epochs = 100  # 默认值
+        # Extract training parameters
+        num_scenarios = 50  # Default value
+        epochs = 100  # Default value
 
-        # 智能提取训练参数
+        # Intelligently extract training parameters
         import re
         num_scenarios, epochs = self._extract_training_parameters(user_message, num_scenarios, epochs)
 
-        self.log_info(f"解析的训练参数: 样本数={num_scenarios}, 迭代次数={epochs}")
+        self.log_info(f"Parsed training parameters: Sample count={num_scenarios}, Iteration count={epochs}")
 
-        # 调用漏损检测智能体进行训练
+        # Call leak detection agent for training
         result = agent.train_leak_detection_model(inp_file, conversation_id, num_scenarios, epochs)
         
         if result['success']:
-            self.log_info("漏损模型训练执行成功")
+            self.log_info("Leak model training execution success")
             return {
                 'success': True,
-                'step_name': '漏损模型训练',
+                'step_name': 'Leak model training',
                 'result': result,
                 'agent_type': 'leak_detection',
                 'model_file': result.get('files', {}).get('model', {}).get('filepath')
@@ -229,70 +229,70 @@ class AgentExecutor(BaseAgent):
         else:
             return {
                 'success': False,
-                'error': result.get('error', '漏损模型训练失败'),
-                'step_name': '漏损模型训练'
+                'error': result.get('error', 'Leak model training failed'),
+                'step_name': 'Leak model training'
             }
     
     def _execute_leak_detection(self, agent, step_info, conversation_id, user_message):
-        """执行漏损检测"""
-        # 查找传感器数据文件和训练好的模型
+        """Execute leak detection"""
+        # Find sensor data file and trained model
         sensor_data_file = self._find_sensor_data_csv(conversation_id)
         model_file = self._find_trained_model(conversation_id)
         
         if not sensor_data_file:
             return {
                 'success': False,
-                'error': '缺少传感器数据CSV文件',
-                'step_name': '漏损检测'
+                'error': 'Missing sensor data CSV file',
+                'step_name': 'Leak detection'
             }
         
         if not model_file:
             return {
                 'success': False,
-                'error': '缺少训练好的漏损检测模型',
-                'step_name': '漏损检测'
+                'error': 'Missing trained leak detection model',
+                'step_name': 'Leak detection'
             }
         
-        # 调用漏损检测智能体进行检测
+        # Call leak detection agent for detection
         result = agent.detect_leak_from_file(sensor_data_file, model_file)
         
         if result['success']:
-            self.log_info("漏损检测执行成功")
+            self.log_info("Leak detection execution success")
             return {
                 'success': True,
-                'step_name': '漏损检测',
+                'step_name': 'Leak detection',
                 'result': result,
                 'agent_type': 'leak_detection'
             }
         else:
             return {
                 'success': False,
-                'error': result.get('error', '漏损检测失败'),
-                'step_name': '漏损检测'
+                'error': result.get('error', 'Leak detection failed'),
+                'step_name': 'Leak detection'
             }
     
     def _execute_generic_step(self, agent, step_info, conversation_id, user_message):
-        """执行通用步骤"""
+        """Execute generic step"""
         inp_file = step_info.get('input_file')
         if not inp_file:
             return {
                 'success': False,
-                'error': '缺少输入文件',
-                'step_name': step_info.get('step_name', '未知步骤')
+                'error': 'Missing input file',
+                'step_name': step_info.get('step_name', 'Unknown step')
             }
         
-        # 调用智能体
+        # Call agent
         result = agent.process(inp_file, user_message, conversation_id)
         
         return {
             'success': result.get('success', False),
-            'step_name': step_info.get('step_name', '未知步骤'),
+            'step_name': step_info.get('step_name', 'Unknown step'),
             'result': result,
             'error': result.get('response') if not result.get('success') else None
         }
     
     def _find_partition_csv(self, conversation_id: str):
-        """查找分区CSV文件"""
+        """Find partition CSV file"""
         downloads_dir = 'downloads'
         if os.path.exists(downloads_dir):
             for filename in os.listdir(downloads_dir):
@@ -303,7 +303,7 @@ class AgentExecutor(BaseAgent):
         return None
     
     def _find_trained_model(self, conversation_id: str):
-        """查找训练好的模型"""
+        """Find trained model"""
         downloads_dir = 'downloads'
         if os.path.exists(downloads_dir):
             for filename in os.listdir(downloads_dir):
@@ -314,7 +314,7 @@ class AgentExecutor(BaseAgent):
         return None
     
     def _find_sensor_data_csv(self, conversation_id: str):
-        """查找传感器数据CSV文件"""
+        """Find sensor data CSV file"""
         uploads_dir = 'uploads'
         if os.path.exists(uploads_dir):
             for filename in os.listdir(uploads_dir):
@@ -324,62 +324,62 @@ class AgentExecutor(BaseAgent):
         return None
     
     def generate_response_with_llm(self, execution_results: list, original_message: str):
-        """使用LLM生成综合响应"""
+        """Use LLM to generate comprehensive response"""
         try:
-            # 构建执行结果摘要
+            # Build execution result summary
             results_summary = ""
             for i, result in enumerate(execution_results):
-                step_name = result.get('step_name', f'步骤{i+1}')
+                step_name = result.get('step_name', f'Step{i+1}')
                 success = result.get('success', False)
-                status = "成功" if success else "失败"
+                status = "Success" if success else "Failed"
                 error = result.get('error', '')
                 
                 results_summary += f"\n{i+1}. {step_name}: {status}"
                 if not success and error:
-                    results_summary += f" (错误: {error})"
+                    results_summary += f" (Error: {error})"
                 elif success and result.get('result'):
-                    # 添加成功结果的简要信息
+                    # Add brief info for successful results
                     agent_result = result['result']
                     if agent_result.get('network_info'):
-                        results_summary += f" - 管网信息已分析"
+                        results_summary += f" - Network info analyzed"
                     if agent_result.get('partition_info'):
-                        results_summary += f" - 分区结果已生成"
+                        results_summary += f" - Partition results generated"
                     if agent_result.get('sensor_info'):
-                        results_summary += f" - 传感器布置已完成"
+                        results_summary += f" - Sensor placement completed"
                     if agent_result.get('model_info'):
-                        results_summary += f" - 模型训练已完成"
+                        results_summary += f" - Model training completed"
             
-            # 构建LLM prompt
+            # Build LLM prompt
             prompt = f"""
-用户原始请求: "{original_message}"
+User original request: "{original_message}"
 
-执行结果摘要:
+Execution result summary:
 {results_summary}
 
-请根据执行结果生成一个专业、详细的回复，包括：
-1. 对用户请求的理解和确认
-2. 执行过程的说明
-3. 主要结果和发现
-4. 如果有失败的步骤，提供解决建议
-5. 下一步建议（如果适用）
+Please generate a professional, detailed response based on execution results, including:
+1. Understanding and confirmation of user request
+2. Explanation of execution process
+3. Main results and findings
+4. If there are failed steps, provide resolution suggestions
+5. Next step recommendations (if applicable)
 
-请用专业但易懂的语言回复，重点突出关键信息。
+Please respond in professional but understandable language, highlighting key information.
 
-请在回复的最后使用以下签名格式：
+Please use the following signature format at the end of your reply:
 
-祝好，
+Best regards,
 
 Tianwei Mu
 Guangzhou Institute of Industrial Intelligence
 """
             
-            # 调用LLM生成响应
+            # Call LLM to generate response
             response = openai.ChatCompletion.create(
                 model="gpt-4-turbo-preview",
                 messages=[
                     {
                         "role": "system",
-                        "content": "你是一个专业的给水管网分析专家，能够根据智能体执行结果生成清晰、专业的分析报告。"
+                        "content": "You are a professional water distribution network analysis expert, able to generate clear, professional analysis reports based on agent execution results."
                     },
                     {
                         "role": "user",
@@ -393,44 +393,44 @@ Guangzhou Institute of Industrial Intelligence
             return response.choices[0].message.content
             
         except Exception as e:
-            self.log_error(f"LLM响应生成失败: {e}")
-            # 返回简单的执行摘要
+            self.log_error(f"LLM response generation failed: {e}")
+            # Return simple execution summary
             successful_steps = [r['step_name'] for r in execution_results if r.get('success')]
             failed_steps = [r['step_name'] for r in execution_results if not r.get('success')]
             
-            summary = f"执行完成。成功步骤: {', '.join(successful_steps) if successful_steps else '无'}"
+            summary = f"Execution complete. Successful steps: {', '.join(successful_steps) if successful_steps else 'None'}"
             if failed_steps:
-                summary += f"。失败步骤: {', '.join(failed_steps)}"
+                summary += f". Failed steps: {', '.join(failed_steps)}"
             
             return summary
     
     def process(self, execution_plan: dict, conversation_id: str, user_message: str):
-        """执行完整的执行计划"""
+        """Execute complete execution plan"""
         try:
             steps = execution_plan.get('steps', [])
             execution_results = []
             
-            self.log_info(f"开始执行计划，共{len(steps)}个步骤")
+            self.log_info(f"Starting execution plan, total {len(steps)} steps")
             
             for i, step in enumerate(steps):
                 step_name = step.get('step_name')
                 step_type = step.get('step_type', 'main')
                 
-                # 跳过前置条件步骤（这些应该在UI层处理）
+                # Skip prerequisite step (these should be handled at UI layer)
                 if step_type == 'prerequisite':
-                    self.log_info(f"跳过前置条件步骤: {step_name}")
+                    self.log_info(f"Skipping prerequisite step: {step_name}")
                     continue
                 
-                # 执行主要步骤
+                # Execute main step
                 result = self.execute_step(step_name, step, conversation_id, user_message)
                 execution_results.append(result)
                 
-                # 如果步骤失败且是关键步骤，可能需要停止执行
-                if not result.get('success') and step_name in ['管网分析', '管网分区']:
-                    self.log_warning(f"关键步骤失败，停止执行: {step_name}")
+                # If step fails and is critical step, may need to stop execution
+                if not result.get('success') and step_name in ['Network analysis', 'Network partition']:
+                    self.log_warning(f"Critical step failed, stopping execution: {step_name}")
                     break
             
-            # 生成综合响应
+            # Generate comprehensive response
             llm_response = self.generate_response_with_llm(execution_results, user_message)
             
             return {
@@ -443,7 +443,7 @@ Guangzhou Institute of Industrial Intelligence
             }
             
         except Exception as e:
-            self.log_error(f"执行计划失败: {e}")
+            self.log_error(f"Execution plan failed: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -451,86 +451,70 @@ Guangzhou Institute of Industrial Intelligence
             }
 
     def _extract_training_parameters(self, user_message: str, default_scenarios: int, default_epochs: int) -> tuple:
-        """智能提取训练参数"""
+        """Intelligently extract training parameters"""
         import re
 
         num_scenarios = default_scenarios
         epochs = default_epochs
 
-        # 提取迭代次数/训练轮数的模式
+        # Pattern for extracting iteration count/training epochs
         epoch_patterns = [
-            r'迭代次数为?(\d+)次?',
-            r'迭代(\d+)次',
-            r'训练(\d+)轮',
-            r'(\d+)轮训练',
-            r'epochs?\s*[=:为]\s*(\d+)',
-            r'(\d+)\s*个?epochs?',
-            r'训练轮数\s*[=:为]\s*(\d+)',
-            r'(\d+)次迭代',
-            r'epoch\s*[=:]\s*(\d+)',
-            r'轮数\s*[=:为]\s*(\d+)'
+            r'epochs?\s*[=: ]\s*(\d+)',
+            r'(\d+)\s*?epochs?',
+            r'iteration\s*count\s*[: ]\s*(\d+)',
+            r'epoch\s*[=:]\s*(\d+)'
         ]
 
-        # 提取样本数/数据组数的模式
+        # Pattern for extracting sample count/data groups
         scenario_patterns = [
-            r'生成数据为?(\d+)组',
-            r'(\d+)组数据',
-            r'(\d+)个样本',
-            r'(\d+)个场景',
-            r'数据量\s*[=:为]\s*(\d+)',
-            r'样本数\s*[=:为]\s*(\d+)',
-            r'场景数\s*[=:为]\s*(\d+)',
-            r'数据\s*(\d+)组',
-            r'样本\s*(\d+)个',
-            r'场景\s*(\d+)个',
-            r'(\d+)\s*个数据',
-            r'(\d+)\s*组样本',
-            r'(\d+)组',  # 简化模式：直接匹配"1000组"
-            r'总样本数\s*[=:为]\s*(\d+)',
-            r'样本总数\s*[=:为]\s*(\d+)',
-            r'数据总数\s*[=:为]\s*(\d+)',
-            r'生成\s*(\d+)\s*组',
-            r'训练数据\s*(\d+)\s*组',
-            r'(\d+)\s*个训练样本'
+            r'(\d+)Sample',
+            r'Sample count\s*[=: ]\s*(\d+)',
+            r'Sample\s*(\d+)',
+            r'(\d+)\s*samples?',
+            r'total\s*samples?\s*[=: ]\s*(\d+)',
+            r'sample\s*count\s*[=: ]\s*(\d+)',
+            r'sample\s*size\s*[=: ]\s*(\d+)',
+            r'generated\s*data\s*[=: ]\s*(\d+)',
+            r'number\s*of\s*samples?\s*[=: ]\s*(\d+)'
         ]
 
-        # 尝试匹配迭代次数
+        # Try to match iteration count
         for pattern in epoch_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
                 epochs = min(int(match.group(1)), 500)
-                self.log_info(f"识别到迭代次数: {epochs} (匹配模式: {pattern})")
+                self.log_info(f"Identified iteration count: {epochs} (Matched pattern: {pattern})")
                 break
 
-        # 尝试匹配样本数
+        # Try to match sample count
         for pattern in scenario_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
-                num_scenarios = min(int(match.group(1)), 2000)  # 提高最大限制到2000
-                self.log_info(f"识别到样本数: {num_scenarios} (匹配模式: {pattern})")
+                num_scenarios = min(int(match.group(1)), 2000)  # Increase max limit to 2000
+                self.log_info(f"Identified sample count: {num_scenarios} (Matched pattern: {pattern})")
                 break
 
-        # 如果没有匹配到特定模式，使用原来的简单数字提取作为备用
+        # If no specific pattern matched, use simple number extraction as fallback
         if num_scenarios == default_scenarios and epochs == default_epochs:
             numbers = re.findall(r'\d+', user_message)
             if numbers:
-                # 如果只有一个数字，根据上下文判断
+                # If only one number, determine based on context
                 if len(numbers) == 1:
                     num = int(numbers[0])
-                    if any(keyword in user_message.lower() for keyword in ['迭代', '轮', 'epoch']):
+                    if any(keyword in user_message.lower() for keyword in ['iteration', 'epoch', 'round']):
                         epochs = min(num, 500)
-                        self.log_info(f"根据上下文识别为迭代次数: {epochs}")
-                    elif any(keyword in user_message.lower() for keyword in ['数据', '样本', '场景', '组']):
-                        num_scenarios = min(num, 2000)  # 提高最大限制到2000
-                        self.log_info(f"根据上下文识别为样本数: {num_scenarios}")
+                        self.log_info(f"Identified as iteration count based on context: {epochs}")
+                    elif any(keyword in user_message.lower() for keyword in ['packet', 'sample', 'scenario', 'count', 'size']):
+                        num_scenarios = min(num, 2000)  # Increase max limit to 2000
+                        self.log_info(f"Identified as sample count based on context: {num_scenarios}")
                     else:
-                        # 默认第一个数字作为样本数
-                        num_scenarios = min(num, 2000)  # 提高最大限制到2000
-                        self.log_info(f"默认识别为样本数: {num_scenarios}")
+                        # Default first number as sample count
+                        num_scenarios = min(num, 2000)  # Increase max limit to 2000
+                        self.log_info(f"Default identified as sample count: {num_scenarios}")
                 elif len(numbers) >= 2:
-                    # 多个数字时，按原来的逻辑：第一个作为样本数，第二个作为迭代次数
-                    num_scenarios = min(int(numbers[0]), 2000)  # 提高最大限制到2000
+                    # Multiple numbers: first as sample count, second as iteration count per original logic
+                    num_scenarios = min(int(numbers[0]), 2000)  # Increase max limit to 2000
                     epochs = min(int(numbers[1]), 500)
-                    self.log_info(f"多数字模式: 样本数={num_scenarios}, 迭代次数={epochs}")
+                    self.log_info(f"Multi-number mode: Sample count={num_scenarios}, Iteration count={epochs}")
 
         return num_scenarios, epochs

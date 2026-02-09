@@ -1,6 +1,6 @@
 """
-SensorPlacement 传感器优化布置智能体
-负责基于管网分区结果进行传感器优化布置，考虑韧性和检测效果
+SensorPlacement Sensor Optimization Placement Agent
+Responsible for sensor optimization placement based on network partition results, considering resilience and detection effectiveness
 """
 import os
 import re
@@ -20,176 +20,176 @@ except ImportError:
     WNTR_AVAILABLE = False
 
 class SensorPlacement(BaseAgent):
-    """传感器优化布置智能体"""
+    """Sensor optimization placement agent"""
     
     def __init__(self):
         super().__init__("SensorPlacement")
         
         if not WNTR_AVAILABLE:
-            self.log_error("WNTR库未安装，传感器布置功能不可用")
+            self.log_error("WNTR library not installed, sensor placement function unavailable")
         
         self.partition_sim = PartitionSim()
         self.downloads_folder = 'downloads'
         os.makedirs(self.downloads_folder, exist_ok=True)
         
-        # 默认参数（优化版本，减少计算量）
+        # Default parameters (optimized version, reduced computation)
         self.default_params = {
-            'demand_ratios': [0.20],  # 减少扰动比例，只使用一个
-            'sensitivity_threshold': 0.5,  # 敏感度阈值
-            'max_failure_rate': 0.8,  # 最大故障率（允许更多传感器故障）
-            'resilience_weight': 0.4,  # 韧性权重
-            'coverage_weight': 0.6,  # 覆盖率权重
-            'target_coverage': 0.95,  # 目标覆盖率
-            'min_sensor_ratio': 0.04,  # 最小传感器比例（节点数的4%）
-            'max_sensor_ratio': 0.15,  # 最大传感器比例（节点数的15%）
-            'custom_thresholds': {},  # 自定义传感器阈值 {sensor_node: threshold}
-            'enable_custom_thresholds': False  # 是否启用自定义阈值
+            'demand_ratios': [0.20],  # Reduced perturbation ratios, only use one
+            'sensitivity_threshold': 0.5,  # Sensitivity threshold
+            'max_failure_rate': 0.8,  # Max failure rate (allow more sensor failures)
+            'resilience_weight': 0.4,  # Resilience weight
+            'coverage_weight': 0.6,  # Coverage weight
+            'target_coverage': 0.95,  # Target coverage
+            'min_sensor_ratio': 0.04,  # Min sensor ratio (4% of node count)
+            'max_sensor_ratio': 0.15,  # Max sensor ratio (15% of node count)
+            'custom_thresholds': {},  # Custom sensor thresholds {sensor_node: threshold}
+            'enable_custom_thresholds': False  # Whether to enable custom thresholds
         }
     
     def load_partition_results(self, csv_file_path):
-        """从CSV文件加载分区结果"""
+        """Load partition results from CSV file"""
         try:
-            self.log_info(f"加载分区结果: {csv_file_path}")
+            self.log_info(f"Loading partition results: {csv_file_path}")
             
             df = pd.read_csv(csv_file_path, encoding='utf-8-sig')
             
-            # 提取需水节点的分区信息
-            demand_nodes_df = df[df['节点类型'] == '需水节点']
+            # Extract partition information for demand nodes
+            demand_nodes_df = df[df['Node Type'] == 'Demand Node']
             
             partitions = {}
             for _, row in demand_nodes_df.iterrows():
-                partition_id = row['分区编号']
-                node_id = row['节点ID']
+                partition_id = row['Partition Number']
+                node_id = row['Node ID']
                 
-                if partition_id > 0:  # 排除未分配节点
+                if partition_id > 0:  # Exclude unassigned nodes
                     if partition_id not in partitions:
                         partitions[partition_id] = []
                     partitions[partition_id].append(node_id)
             
-            self.log_info(f"成功加载分区结果: {len(partitions)}个分区")
+            self.log_info(f"Successfully loaded partition results: {len(partitions)} partitions")
             for partition_id, nodes in partitions.items():
-                self.log_info(f"  分区{partition_id}: {len(nodes)}个节点")
+                self.log_info(f"  Partition{partition_id}: {len(nodes)} nodes")
             
             return partitions
             
         except Exception as e:
-            error_msg = f"加载分区结果失败: {str(e)}"
+            error_msg = f"Load partition results failed: {str(e)}"
             self.log_error(error_msg)
             return None
     
     def compute_pressure_sensitivity_matrix(self, inp_file_path, partitions, demand_ratios):
-        """计算压力敏感度矩阵"""
+        """Calculate pressure sensitivity matrix"""
         try:
-            self.log_info(f"开始计算压力敏感度矩阵，扰动比例: {demand_ratios}")
+            self.log_info(f"Starting to calculate pressure sensitivity matrix, perturbation ratios: {demand_ratios}")
 
-            # 加载网络模型
+            # Load network model
             wn = wntr.network.WaterNetworkModel(inp_file_path)
 
-            # 获取所有需水节点
+            # Get all demand nodes
             all_demand_nodes = []
             for nodes in partitions.values():
                 all_demand_nodes.extend(nodes)
 
-            self.log_info(f"需水节点总数: {len(all_demand_nodes)}")
+            self.log_info(f"Total demand nodes: {len(all_demand_nodes)}")
 
-            # 检查节点是否存在于网络中
+            # Check if nodes exist in network
             valid_demand_nodes = []
             for node in all_demand_nodes:
                 if node in wn.node_name_list:
                     valid_demand_nodes.append(node)
                 else:
-                    self.log_info(f"节点 {node} 不存在于网络中，跳过")
+                    self.log_info(f"Node {node} does not exist in network, skipping")
 
             if not valid_demand_nodes:
-                raise ValueError("没有找到有效的需水节点")
+                raise ValueError("No valid demand nodes found")
 
-            self.log_info(f"有效需水节点数: {len(valid_demand_nodes)}")
+            self.log_info(f"Valid demand node count: {len(valid_demand_nodes)}")
 
-            # 运行基准仿真
-            self.log_info("运行基准仿真...")
+            # Run baseline simulation
+            self.log_info("Running baseline simulation...")
             sim = wntr.sim.EpanetSimulator(wn)
             base_results = sim.run_sim()
             base_pressure = base_results.node['pressure'].loc[:, valid_demand_nodes].values
 
-            # 计算总实际需水量（参考cluster_simple.py的做法）
-            self.log_info("计算总需水量...")
+            # Calculate total actual demand (following cluster_simple.py approach)
+            self.log_info("Calculating total demand...")
             total_demand = 0
             for name in valid_demand_nodes:
-                # 获取该节点在所有时间步的实际需水量
+                # Get actual demand at all time steps for this node
                 node_demands = base_results.node['demand'].loc[:, name]
-                # 累加该节点的所有时间步需水量
+                # Accumulate all time step demands for this node
                 total_demand += node_demands.sum()
 
-            self.log_info(f"总需水量: {total_demand:.4f}")
+            self.log_info(f"Total demand: {total_demand:.4f}")
 
-            # 初始化敏感度矩阵
+            # Initialize sensitivity matrix
             n_nodes = len(valid_demand_nodes)
             sensitivity_matrix = np.zeros((n_nodes, n_nodes))
 
-            # 对每个需水节点进行扰动
+            # Perturb each demand node
             for i, perturb_node in enumerate(valid_demand_nodes):
-                if i % 50 == 0:  # 每50个节点输出一次进度
-                    self.log_info(f"处理节点 {i+1}/{n_nodes}: {perturb_node} ({(i+1)/n_nodes*100:.1f}%)")
+                if i % 50 == 0:  # Output progress every 50 nodes
+                    self.log_info(f"Processing node {i+1}/{n_nodes}: {perturb_node} ({(i+1)/n_nodes*100:.1f}%)")
 
-                # 保存原始需水量
+                # Save original demand
                 original_demands = {}
                 node = wn.get_node(perturb_node)
                 for j, ts in enumerate(node.demand_timeseries_list):
                     original_demands[j] = ts.base_value
 
-                # 对每个扰动比例进行计算
+                # Calculate for each perturbation ratio
                 ratio_sensitivities = []
 
                 for ratio in demand_ratios:
-                    # 计算该比例下的平均扰动量（参考cluster_simple.py）
+                    # Calculate average perturbation amount for this ratio (following cluster_simple.py)
                     delta = total_demand * ratio / len(base_results.node['demand'])
 
-                    # 设置扰动需水量
+                    # Set perturbed demand
                     node = wn.get_node(perturb_node)
                     for j, ts in enumerate(node.demand_timeseries_list):
                         if original_demands[j] > 0:
-                            # 按比例扰动
+                            # Proportional perturbation
                             ts.base_value = original_demands[j] + original_demands[j] * ratio
                         else:
-                            # 绝对量扰动（使用基于总需水量的delta）
+                            # Absolute perturbation (using delta based on total demand)
                             ts.base_value = original_demands[j] + delta
 
-                    # 运行扰动仿真
+                    # Run perturbed simulation
                     sim = wntr.sim.EpanetSimulator(wn)
                     perturb_results = sim.run_sim()
                     perturb_pressure = perturb_results.node['pressure'].loc[:, valid_demand_nodes].values
 
-                    # 计算压力差
+                    # Calculate pressure difference
                     pressure_diff = np.abs(perturb_pressure - base_pressure)
 
-                    # 计算时间平均
+                    # Calculate time average
                     avg_pressure_diff = np.mean(pressure_diff, axis=0)
                     ratio_sensitivities.append(avg_pressure_diff)
 
-                    # 恢复原始需水量
+                    # Restore original demand
                     node = wn.get_node(perturb_node)
                     for j, ts in enumerate(node.demand_timeseries_list):
                         ts.base_value = original_demands[j]
 
-                # 计算多个扰动比例的平均敏感度
+                # Calculate average sensitivity for multiple perturbation ratios
                 avg_sensitivity = np.mean(ratio_sensitivities, axis=0)
 
-                # 归一化处理（避免分母为0）
+                # Normalization (avoid division by zero)
                 max_sensitivity = np.max(avg_sensitivity)
                 if max_sensitivity > 0:
                     sensitivity_matrix[i, :] = avg_sensitivity / max_sensitivity
                 else:
                     sensitivity_matrix[i, :] = 0
 
-            self.log_info("压力敏感度矩阵计算完成")
+            self.log_info("Pressure sensitivity matrix calculation complete")
 
-            # 输出敏感度矩阵的统计信息
+            # Output sensitivity matrix statistics
             non_zero_count = np.count_nonzero(sensitivity_matrix)
             total_elements = sensitivity_matrix.size
-            self.log_info(f"敏感度矩阵统计: 非零元素 {non_zero_count}/{total_elements} ({non_zero_count/total_elements*100:.1f}%)")
-            self.log_info(f"敏感度矩阵范围: [{np.min(sensitivity_matrix):.6f}, {np.max(sensitivity_matrix):.6f}]")
+            self.log_info(f"Sensitivity matrix statistics: non-zero elements {non_zero_count}/{total_elements} ({non_zero_count/total_elements*100:.1f}%)")
+            self.log_info(f"Sensitivity matrix range: [{np.min(sensitivity_matrix):.6f}, {np.max(sensitivity_matrix):.6f}]")
 
-            # 更新分区信息，只保留有效节点
+            # Update partition info, only retain valid nodes
             valid_partitions = {}
             for partition_id, nodes in partitions.items():
                 valid_nodes = [node for node in nodes if node in valid_demand_nodes]
@@ -203,40 +203,40 @@ class SensorPlacement(BaseAgent):
             }
 
         except Exception as e:
-            error_msg = f"计算压力敏感度矩阵失败: {str(e)}"
+            error_msg = f"Calculate pressure sensitivity matrix failed: {str(e)}"
             self.log_error(error_msg)
             return None
     
     def select_sensors_by_partition(self, sensitivity_data, threshold=0.5):
-        """基于分区选择传感器"""
+        """Select sensors based on partition"""
         try:
-            self.log_info(f"开始传感器选择，敏感度阈值: {threshold}")
+            self.log_info(f"Starting sensor selection, sensitivity threshold: {threshold}")
             
             sensitivity_matrix = sensitivity_data['matrix']
             all_nodes = sensitivity_data['nodes']
             partitions = sensitivity_data['partitions']
             
-            # 创建节点索引映射
+            # Create node index mapping
             node_to_index = {node: i for i, node in enumerate(all_nodes)}
             
             selected_sensors = {}
             
             for partition_id, partition_nodes in partitions.items():
-                self.log_info(f"处理分区{partition_id}: {len(partition_nodes)}个节点")
+                self.log_info(f"Processing partition {partition_id}: {len(partition_nodes)} nodes")
                 
-                # 获取分区内节点的索引
+                # Get indices of nodes within partition
                 partition_indices = [node_to_index[node] for node in partition_nodes if node in node_to_index]
                 
                 if len(partition_indices) < 2:
-                    self.log_info(f"分区{partition_id}节点数少于2个，跳过")
+                    self.log_info(f"Partition {partition_id} has less than 2 nodes, skipping")
                     continue
                 
-                # 计算每个节点的影响力（能检测到的节点数）
+                # Calculate influence score of each node (number of detectable nodes)
                 influence_scores = {}
                 for i, node_idx in enumerate(partition_indices):
                     node_name = all_nodes[node_idx]
                     
-                    # 只考虑同分区内的敏感度
+                    # Only consider sensitivity within same partition
                     partition_sensitivities = sensitivity_matrix[node_idx, partition_indices]
                     detectable_count = np.sum(partition_sensitivities > threshold)
                     
@@ -246,19 +246,19 @@ class SensorPlacement(BaseAgent):
                         'avg_sensitivity': np.mean(partition_sensitivities)
                     }
                 
-                # 动态确定传感器数量以保证韧性
+                # Dynamically determine sensor count to ensure resilience
                 partition_size = len(partition_nodes)
                 min_sensors = max(2, int(partition_size * self.default_params['min_sensor_ratio']))
                 max_sensors = min(10, max(3, int(partition_size * self.default_params['max_sensor_ratio'])))
                 target_coverage = self.default_params['target_coverage']
 
-                self.log_info(f"分区{partition_id}动态传感器范围: {min_sensors}-{max_sensors}个")
+                self.log_info(f"Partition {partition_id} dynamic sensor range: {min_sensors}-{max_sensors}")
 
-                # 贪心算法选择传感器
+                # Greedy algorithm to select sensors
                 uncovered_indices = set(partition_indices)
                 selected_sensors[partition_id] = []
 
-                # 第一阶段：基于覆盖率选择传感器
+                # Phase 1: Select sensors based on coverage
                 while (uncovered_indices and
                        len(selected_sensors[partition_id]) < max_sensors and
                        len(uncovered_indices) / len(partition_indices) > (1 - target_coverage)):
@@ -268,10 +268,10 @@ class SensorPlacement(BaseAgent):
 
                     for node_name, info in influence_scores.items():
                         if node_name in [s['node'] for s in selected_sensors[partition_id]]:
-                            continue  # 已选择的传感器
+                            continue  # Already selected sensors
 
                         node_idx = info['index']
-                        # 计算能覆盖多少未覆盖的节点
+                        # Calculate how many uncovered nodes can be covered
                         partition_sensitivities = sensitivity_matrix[node_idx, list(uncovered_indices)]
                         coverage = np.sum(partition_sensitivities > threshold)
 
@@ -290,7 +290,7 @@ class SensorPlacement(BaseAgent):
 
                     selected_sensors[partition_id].append(best_sensor)
 
-                    # 更新未覆盖节点
+                    # Update uncovered nodes
                     sensor_idx = best_sensor['index']
                     covered_indices = []
                     for idx in uncovered_indices:
@@ -300,7 +300,7 @@ class SensorPlacement(BaseAgent):
                     for idx in covered_indices:
                         uncovered_indices.discard(idx)
 
-                # 第二阶段：确保达到最小传感器数量（韧性保证）
+                # Phase 2: Ensure minimum sensor count is reached (resilience guarantee)
                 while len(selected_sensors[partition_id]) < min_sensors:
                     best_sensor = None
                     max_diversity = 0
@@ -310,15 +310,15 @@ class SensorPlacement(BaseAgent):
                             continue
 
                         node_idx = info['index']
-                        # 计算与已有传感器的多样性（距离）
+                        # Calculate diversity (distance) with existing sensors
                         diversity_score = 0
                         for existing_sensor in selected_sensors[partition_id]:
                             existing_idx = existing_sensor['index']
-                            # 使用敏感度差异作为距离度量
+                            # Use sensitivity difference as distance metric
                             distance = 1 - sensitivity_matrix[node_idx, existing_idx]
                             diversity_score += distance
 
-                        # 平均多样性分数
+                        # Average diversity score
                         if len(selected_sensors[partition_id]) > 0:
                             diversity_score /= len(selected_sensors[partition_id])
 
@@ -335,7 +335,7 @@ class SensorPlacement(BaseAgent):
                     if best_sensor is not None:
                         selected_sensors[partition_id].append(best_sensor)
                     else:
-                        # 如果没有更多节点，随机选择剩余节点
+                        # If no more nodes, randomly select remaining nodes
                         remaining_nodes = [node for node in partition_nodes
                                          if node not in [s['node'] for s in selected_sensors[partition_id]]]
                         if remaining_nodes:
@@ -352,25 +352,25 @@ class SensorPlacement(BaseAgent):
                         else:
                             break
                 
-                self.log_info(f"分区{partition_id}选择了{len(selected_sensors[partition_id])}个传感器")
+                self.log_info(f"Partition {partition_id} selected {len(selected_sensors[partition_id])} sensors")
             
             return selected_sensors
 
         except Exception as e:
-            error_msg = f"传感器选择失败: {str(e)}"
+            error_msg = f"Sensor selection failed: {str(e)}"
             self.log_error(error_msg)
             return None
 
     def evaluate_resilience(self, selected_sensors, sensitivity_data, threshold=0.5):
-        """评估传感器布置的韧性 - 详细版本"""
+        """Evaluate sensor placement resilience - detailed version"""
         try:
-            self.log_info("开始详细韧性评估")
+            self.log_info("Starting detailed resilience evaluation")
 
             sensitivity_matrix = sensitivity_data['matrix']
             all_nodes = sensitivity_data['nodes']
             partitions = sensitivity_data['partitions']
 
-            # 创建节点索引映射
+            # Create node index mapping
             node_to_index = {node: i for i, node in enumerate(all_nodes)}
 
             resilience_results = {}
@@ -379,12 +379,12 @@ class SensorPlacement(BaseAgent):
                 partition_nodes = partitions[partition_id]
                 partition_indices = [node_to_index[node] for node in partition_nodes if node in node_to_index]
 
-                self.log_info(f"评估分区{partition_id}的韧性: {len(sensors)}个传感器, {len(partition_nodes)}个节点")
+                self.log_info(f"Evaluating partition {partition_id} resilience: {len(sensors)} sensors, {len(partition_nodes)} nodes")
 
-                # 详细场景分析
+                # Detailed scenario analysis
                 detailed_scenarios = []
 
-                # 1. 全部传感器正常工作
+                # 1. All sensors operating normally
                 all_sensor_indices = [s['index'] for s in sensors]
                 all_sensor_nodes = [s['node'] for s in sensors]
                 full_detected_count, full_coverage_rate = self._calculate_detailed_detection(
@@ -392,7 +392,7 @@ class SensorPlacement(BaseAgent):
                 )
 
                 detailed_scenarios.append({
-                    'scenario_type': '全部传感器正常',
+                    'scenario_type': 'All sensors normal',
                     'failed_sensors': [],
                     'remaining_sensors': [s['node'] for s in sensors],
                     'detected_nodes': full_detected_count,
@@ -402,7 +402,7 @@ class SensorPlacement(BaseAgent):
                     'threshold_used': threshold
                 })
 
-                # 2. 传感器故障场景（1到M-1个故障）
+                # 2. Sensor failure scenarios (1 to M-1 failures)
                 total_failure_coverage = 0.0
                 failure_scenario_count = 0
 
@@ -410,7 +410,7 @@ class SensorPlacement(BaseAgent):
                     failure_combinations = list(combinations(range(len(sensors)), failure_count))
 
                     for failed_indices in failure_combinations:
-                        # 确定失效和剩余的传感器
+                        # Determine failed and remaining sensors
                         failed_sensors = [sensors[i]['node'] for i in failed_indices]
                         remaining_sensor_indices = [
                             sensors[i]['index'] for i in range(len(sensors))
@@ -421,7 +421,7 @@ class SensorPlacement(BaseAgent):
                             if i not in failed_indices
                         ]
 
-                        # 计算剩余传感器的检测能力
+                        # Calculate remaining sensors' detection capability
                         detected_count, coverage_rate = self._calculate_detailed_detection(
                             remaining_sensor_indices, partition_indices, sensitivity_matrix, threshold, remaining_sensors
                         )
@@ -430,7 +430,7 @@ class SensorPlacement(BaseAgent):
                         failure_scenario_count += 1
 
                         detailed_scenarios.append({
-                            'scenario_type': f'{failure_count}个传感器失效',
+                            'scenario_type': f'{failure_count} sensor(s) failed',
                             'failed_sensors': failed_sensors,
                             'remaining_sensors': remaining_sensors,
                             'detected_nodes': detected_count,
@@ -440,7 +440,7 @@ class SensorPlacement(BaseAgent):
                             'threshold_used': threshold
                         })
 
-                # 计算平均韧性分数（只考虑故障场景）
+                # Calculate average resilience score (only considering failure scenarios)
                 avg_failure_resilience = total_failure_coverage / failure_scenario_count if failure_scenario_count > 0 else 0.0
 
                 resilience_results[partition_id] = {
@@ -453,23 +453,23 @@ class SensorPlacement(BaseAgent):
                     'failure_scenarios': failure_scenario_count
                 }
 
-                self.log_info(f"分区{partition_id}韧性分数: {avg_failure_resilience:.4f}")
+                self.log_info(f"Partition {partition_id} resilience score: {avg_failure_resilience:.4f}")
 
             return resilience_results
 
         except Exception as e:
-            error_msg = f"韧性评估失败: {str(e)}"
+            error_msg = f"Resilience evaluation failed: {str(e)}"
             self.log_error(error_msg)
             return None
 
     def _calculate_detection_rate(self, sensor_indices, target_indices, sensitivity_matrix, threshold):
-        """计算检测率"""
+        """Calculate detection rate"""
         if not sensor_indices:
             return 0.0
 
         detected_count = 0
         for target_idx in target_indices:
-            # 检查是否有任何传感器能检测到该节点
+            # Check if any sensor can detect this node
             for sensor_idx in sensor_indices:
                 if sensitivity_matrix[sensor_idx, target_idx] > threshold:
                     detected_count += 1
@@ -478,15 +478,15 @@ class SensorPlacement(BaseAgent):
         return detected_count / len(target_indices) if target_indices else 0.0
 
     def _calculate_detailed_detection(self, sensor_indices, target_indices, sensitivity_matrix, threshold, sensor_nodes=None):
-        """计算详细检测信息：返回检测到的节点数和覆盖率"""
+        """Calculate detailed detection info: returns detected node count and coverage rate"""
         if not sensor_indices or not target_indices:
             return 0, 0.0
 
         detected_count = 0
         for target_idx in target_indices:
-            # 检查是否有任何传感器能检测到该节点
+            # Check if any sensor can detect this node
             for i, sensor_idx in enumerate(sensor_indices):
-                # 获取该传感器的阈值（支持自定义阈值）
+                # Get this sensor's threshold (supports custom thresholds)
                 sensor_threshold = threshold
                 if (self.default_params.get('enable_custom_thresholds', False) and
                     sensor_nodes and i < len(sensor_nodes)):
@@ -501,27 +501,27 @@ class SensorPlacement(BaseAgent):
         return detected_count, coverage_rate
 
     def set_custom_sensor_thresholds(self, custom_thresholds):
-        """设置自定义传感器阈值
+        """Set custom sensor thresholds
 
         Args:
-            custom_thresholds (dict): {sensor_node: threshold} 格式的字典
+            custom_thresholds (dict): Dictionary in {sensor_node: threshold} format
         """
         self.default_params['custom_thresholds'] = custom_thresholds
         self.default_params['enable_custom_thresholds'] = bool(custom_thresholds)
-        self.log_info(f"设置自定义传感器阈值: {custom_thresholds}")
+        self.log_info(f"Set custom sensor thresholds: {custom_thresholds}")
 
     def _calculate_resilience_score(self, scenario_results):
-        """计算韧性分数"""
-        # 加权平均不同故障场景的检测率
+        """Calculate resilience score"""
+        # Weighted average detection rate for different failure scenarios
         total_score = 0.0
         total_weight = 0.0
 
         for scenario, result in scenario_results.items():
             if 'no_failure' in scenario:
-                weight = 0.5  # 无故障情况权重
+                weight = 0.5  # No failure case weight
             else:
                 failure_count = int(scenario.split('_')[0])
-                weight = 1.0 / (failure_count + 1)  # 故障越多权重越小
+                weight = 1.0 / (failure_count + 1)  # More failures = lower weight
 
             total_score += result['detection_rate'] * weight
             total_weight += weight
@@ -529,33 +529,33 @@ class SensorPlacement(BaseAgent):
         return total_score / total_weight if total_weight > 0 else 0.0
 
     def optimize_sensor_placement(self, sensitivity_data, max_iterations=10):
-        """优化传感器布置"""
+        """Optimize sensor placement"""
         try:
-            self.log_info("开始传感器布置优化")
+            self.log_info("Starting sensor placement optimization")
 
             best_solution = None
             best_score = 0.0
 
-            # 尝试不同的敏感度阈值（减少数量以加快计算）
+            # Try different sensitivity thresholds (reduced count to speed up calculation)
             thresholds = [0.4, 0.5, 0.6]
 
             for threshold in thresholds:
-                self.log_info(f"尝试阈值: {threshold}")
+                self.log_info(f"Trying threshold: {threshold}")
 
-                # 选择传感器
+                # Select sensors
                 selected_sensors = self.select_sensors_by_partition(sensitivity_data, threshold)
                 if not selected_sensors:
                     continue
 
-                # 评估韧性
+                # Evaluate resilience
                 resilience_results = self.evaluate_resilience(selected_sensors, sensitivity_data, threshold)
                 if not resilience_results:
                     continue
 
-                # 计算综合评分
+                # Calculate total score
                 total_score = self._calculate_total_score(selected_sensors, resilience_results)
 
-                self.log_info(f"阈值{threshold}的综合评分: {total_score:.4f}")
+                self.log_info(f"Total score for threshold {threshold}: {total_score:.4f}")
 
                 if total_score > best_score:
                     best_score = total_score
@@ -567,30 +567,30 @@ class SensorPlacement(BaseAgent):
                     }
 
             if best_solution:
-                self.log_info(f"最优解: 阈值={best_solution['threshold']}, 评分={best_solution['score']:.4f}")
+                self.log_info(f"Optimal solution: threshold={best_solution['threshold']}, score={best_solution['score']:.4f}")
 
             return best_solution
 
         except Exception as e:
-            error_msg = f"传感器布置优化失败: {str(e)}"
+            error_msg = f"Sensor placement optimization failed: {str(e)}"
             self.log_error(error_msg)
             return None
 
     def _calculate_total_score(self, selected_sensors, resilience_results):
-        """计算综合评分"""
-        # 传感器数量惩罚（降低惩罚力度）
+        """Calculate total score"""
+        # Sensor count penalty (reduced penalty weight)
         total_sensors = sum(len(sensors) for sensors in selected_sensors.values())
-        sensor_penalty = total_sensors * 0.001  # 每个传感器扣0.001分
+        sensor_penalty = total_sensors * 0.001  # Deduct 0.001 points per sensor
 
-        # 韧性分数
+        # Resilience score
         resilience_scores = [r['resilience_score'] for r in resilience_results.values()]
         avg_resilience = np.mean(resilience_scores) if resilience_scores else 0.0
 
-        # 覆盖率分数（基于传感器数量和分区覆盖）
+        # Coverage score (based on sensor count and partition coverage)
         partition_count = len(selected_sensors)
-        coverage_score = min(1.0, total_sensors / (partition_count * 2))  # 理想情况每分区2个传感器
+        coverage_score = min(1.0, total_sensors / (partition_count * 2))  # Ideally 2 sensors per partition
 
-        # 综合评分：韧性权重40%，覆盖率权重60%
+        # Total score: resilience weight 40%, coverage weight 60%
         resilience_weight = self.default_params['resilience_weight']
         coverage_weight = self.default_params['coverage_weight']
 
@@ -598,10 +598,10 @@ class SensorPlacement(BaseAgent):
                       coverage_score * coverage_weight -
                       sensor_penalty)
 
-        return max(0.001, total_score)  # 确保最小分数为0.001
+        return max(0.001, total_score)  # Ensure minimum score is 0.001
 
     def _save_detailed_resilience_analysis(self, solution, conversation_id):
-        """保存详细的韧性分析结果"""
+        """Save detailed resilience analysis results"""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"resilience_analysis_{conversation_id[:8]}_{timestamp}.csv"
@@ -614,41 +614,41 @@ class SensorPlacement(BaseAgent):
 
                 for scenario in detailed_scenarios:
                     analysis_data.append({
-                        '分区编号': partition_id,
-                        '场景类型': scenario['scenario_type'],
-                        '失效传感器': ', '.join(scenario['failed_sensors']) if scenario['failed_sensors'] else '无',
-                        '剩余传感器': ', '.join(scenario['remaining_sensors']),
-                        '检测到节点数': scenario['detected_nodes'],
-                        '总节点数': scenario['total_nodes'],
-                        '覆盖率': f"{scenario['coverage_rate']:.4f}",
-                        '覆盖百分比': scenario['coverage_percentage'],
-                        '敏感度阈值': scenario['threshold_used'],
-                        '分区传感器总数': resilience_info['sensor_count'],
-                        '分区平均韧性': f"{resilience_info['resilience_score']:.4f}"
+                        'Partition Number': partition_id,
+                        'Scenario Type': scenario['scenario_type'],
+                        'Failed Sensors': ', '.join(scenario['failed_sensors']) if scenario['failed_sensors'] else 'None',
+                        'Remaining Sensors': ', '.join(scenario['remaining_sensors']),
+                        'Detected Node Count': scenario['detected_nodes'],
+                        'Total Node Count': scenario['total_nodes'],
+                        'Coverage Rate': f"{scenario['coverage_rate']:.4f}",
+                        'Coverage Percentage': scenario['coverage_percentage'],
+                        'Sensitivity Threshold': scenario['threshold_used'],
+                        'Partition Total Sensors': resilience_info['sensor_count'],
+                        'Partition Avg Resilience': f"{resilience_info['resilience_score']:.4f}"
                     })
 
-            # 创建DataFrame并保存
+            # Create DataFrame and save
             df = pd.DataFrame(analysis_data)
             df.to_csv(filepath, index=False, encoding='utf-8-sig')
 
-            self.log_info(f"详细韧性分析已保存到: {filepath}")
+            self.log_info(f"Detailed resilience analysis saved to: {filepath}")
             return filepath
 
         except Exception as e:
-            self.log_error(f"保存韧性分析失败: {str(e)}")
+            self.log_error(f"Save resilience analysis failed: {str(e)}")
             return None
 
     def save_sensor_results(self, solution, inp_file_path, conversation_id):
-        """保存传感器布置结果"""
+        """Save sensor placement results"""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"sensor_placement_{conversation_id[:8]}_{timestamp}.csv"
             filepath = os.path.join(self.downloads_folder, filename)
 
-            # 加载网络模型获取坐标
+            # Load network model to get coordinates
             wn = wntr.network.WaterNetworkModel(inp_file_path)
 
-            # 准备数据
+            # Prepare data
             results_data = []
             sensor_id = 1
 
@@ -656,7 +656,7 @@ class SensorPlacement(BaseAgent):
                 for sensor in sensors:
                     node_name = sensor['node']
 
-                    # 获取节点坐标
+                    # Get node coordinates
                     try:
                         coord = wn.get_node(node_name).coordinates
                         if coord is None:
@@ -664,37 +664,37 @@ class SensorPlacement(BaseAgent):
                     except:
                         coord = (0, 0)
 
-                    # 获取韧性信息
+                    # Get resilience info
                     resilience_info = solution['resilience'].get(partition_id, {})
                     resilience_score = resilience_info.get('resilience_score', 0.0)
 
                     results_data.append({
-                        '传感器ID': f'S{sensor_id:03d}',
-                        '节点名称': node_name,
-                        '分区编号': partition_id,
-                        'X坐标': coord[0],
-                        'Y坐标': coord[1],
-                        '影响力分数': sensor['influence_score'],
-                        '平均敏感度': f"{sensor['avg_sensitivity']:.4f}",
-                        '覆盖节点数': sensor['coverage'],
-                        '分区韧性分数': f"{resilience_score:.4f}",
-                        '敏感度阈值': solution['threshold']
+                        'Sensor ID': f'S{sensor_id:03d}',
+                        'Node Name': node_name,
+                        'Partition Number': partition_id,
+                        'X Coordinate': coord[0],
+                        'Y Coordinate': coord[1],
+                        'Influence Score': sensor['influence_score'],
+                        'Avg Sensitivity': f"{sensor['avg_sensitivity']:.4f}",
+                        'Covered Node Count': sensor['coverage'],
+                        'Partition Resilience Score': f"{resilience_score:.4f}",
+                        'Sensitivity Threshold': solution['threshold']
                     })
                     sensor_id += 1
 
-            # 创建DataFrame并保存
+            # Create DataFrame and save
             df = pd.DataFrame(results_data)
             df.to_csv(filepath, index=False, encoding='utf-8-sig')
 
-            # 保存详细韧性分析
+            # Save detailed resilience analysis
             self._save_detailed_resilience_analysis(solution, conversation_id)
 
-            # 生成统计报告
+            # Generate statistics report
             stats = self._generate_statistics(solution)
 
             file_size = os.path.getsize(filepath)
 
-            self.log_info(f"传感器布置结果已保存到: {filepath}")
+            self.log_info(f"Sensor placement results saved to: {filepath}")
 
             return {
                 'success': True,
@@ -707,7 +707,7 @@ class SensorPlacement(BaseAgent):
             }
 
         except Exception as e:
-            error_msg = f"保存传感器结果失败: {str(e)}"
+            error_msg = f"Save sensor results failed: {str(e)}"
             self.log_error(error_msg)
             return {
                 'success': False,
@@ -715,7 +715,7 @@ class SensorPlacement(BaseAgent):
             }
 
     def _generate_statistics(self, solution):
-        """生成统计信息"""
+        """Generate statistics info"""
         stats = {
             'total_sensors': 0,
             'partitions': len(solution['sensors']),
@@ -724,16 +724,16 @@ class SensorPlacement(BaseAgent):
             'total_score': solution['score']
         }
 
-        # 计算总传感器数
+        # Calculate total sensor count
         for sensors in solution['sensors'].values():
             stats['total_sensors'] += len(sensors)
 
-        # 计算平均韧性
+        # Calculate average resilience
         if solution['resilience']:
             resilience_scores = [r['resilience_score'] for r in solution['resilience'].values()]
             stats['avg_resilience'] = np.mean(resilience_scores)
 
-        # 分区详情
+        # Partition details
         stats['partition_details'] = {}
         for partition_id, sensors in solution['sensors'].items():
             resilience_info = solution['resilience'].get(partition_id, {})
@@ -745,17 +745,17 @@ class SensorPlacement(BaseAgent):
         return stats
 
     def generate_visualization(self, solution, inp_file_path, conversation_id):
-        """生成传感器布置可视化图"""
+        """Generate sensor placement visualization"""
         try:
-            # 设置matplotlib使用英文字体
+            # Set matplotlib to use English fonts
             plt.rcParams['font.family'] = 'DejaVu Sans'
             plt.rcParams['axes.unicode_minus'] = False
 
-            # 加载网络模型
+            # Load network model
             wn = wntr.network.WaterNetworkModel(inp_file_path)
             G = wn.to_graph().to_undirected()
 
-            # 准备节点位置
+            # Prepare node positions
             pos = {}
             layout = None
 
@@ -774,19 +774,19 @@ class SensorPlacement(BaseAgent):
                     coord = layout.get(node, (0, 0))
                 pos[node] = coord
 
-            # 创建图形
+            # Create figure
             plt.figure(figsize=(15, 12))
 
-            # 绘制网络边
+            # Draw network edges
             import networkx as nx
             nx.draw_networkx_edges(G, pos=pos, alpha=0.3, width=0.5, edge_color='gray')
 
-            # 绘制普通节点
+            # Draw regular nodes
             all_nodes = list(G.nodes())
             nx.draw_networkx_nodes(G, pos=pos, nodelist=all_nodes,
                                  node_color='lightblue', node_size=20, alpha=0.6)
 
-            # 绘制传感器节点
+            # Draw sensor nodes
             colors = ['red', 'green', 'blue', 'orange', 'purple', 'brown', 'pink', 'gray']
             sensor_nodes_by_partition = {}
 
@@ -799,7 +799,7 @@ class SensorPlacement(BaseAgent):
                                      node_color=color, node_size=100, alpha=0.8,
                                      label=f'Partition {partition_id} Sensors')
 
-            # 添加图例和标题
+            # Add legend and title
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.title(f'Sensor Placement Results\n'
                      f'Total Sensors: {sum(len(s) for s in solution["sensors"].values())}, '
@@ -807,7 +807,7 @@ class SensorPlacement(BaseAgent):
                      f'Score: {solution["score"]:.4f}')
             plt.axis('off')
 
-            # 保存图像
+            # Save image
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             viz_filename = f"sensor_placement_viz_{conversation_id[:8]}_{timestamp}.png"
             viz_path = os.path.join(self.downloads_folder, viz_filename)
@@ -815,119 +815,119 @@ class SensorPlacement(BaseAgent):
             plt.savefig(viz_path, dpi=300, bbox_inches='tight')
             plt.close()
 
-            self.log_info(f"传感器布置可视化图已保存到: {viz_path}")
+            self.log_info(f"Sensor placement visualization saved to: {viz_path}")
 
             return viz_path
 
         except Exception as e:
-            error_msg = f"生成可视化图失败: {str(e)}"
+            error_msg = f"Generate visualization failed: {str(e)}"
             self.log_error(error_msg)
             return None
 
     def process(self, inp_file_path, partition_csv_path, user_message, conversation_id):
-        """主处理函数"""
+        """Main processing function"""
         try:
-            self.log_info(f"开始传感器优化布置: {user_message}")
-            self.log_info(f"输入文件: {inp_file_path}")
-            self.log_info(f"分区文件: {partition_csv_path}")
+            self.log_info(f"Starting sensor optimization placement: {user_message}")
+            self.log_info(f"Input file: {inp_file_path}")
+            self.log_info(f"Partition file: {partition_csv_path}")
 
-            # Step 1: 加载分区结果
-            self.log_info("Step 1: 加载分区结果...")
+            # Step 1: Load partition results
+            self.log_info("Step 1: Loading partition results...")
             partitions = self.load_partition_results(partition_csv_path)
             if not partitions:
-                self.log_error("分区结果加载失败")
+                self.log_error("Partition results load failed")
                 return {
                     'success': False,
-                    'response': "分区结果加载失败",
-                    'error': "无法加载分区CSV文件"
+                    'response': "Partition results load failed",
+                    'error': "Unable to load partition CSV file"
                 }
 
-            self.log_info(f"分区加载成功，共{len(partitions)}个分区")
+            self.log_info(f"Partition loaded successfully, total {len(partitions)} partitions")
 
-            # Step 2: 计算压力敏感度矩阵
-            self.log_info("Step 2: 计算压力敏感度矩阵...")
+            # Step 2: Calculate pressure sensitivity matrix
+            self.log_info("Step 2: Calculating pressure sensitivity matrix...")
             sensitivity_data = self.compute_pressure_sensitivity_matrix(
                 inp_file_path, partitions, self.default_params['demand_ratios']
             )
 
             if not sensitivity_data:
-                self.log_error("压力敏感度矩阵计算失败")
+                self.log_error("Pressure sensitivity matrix calculation failed")
                 return {
                     'success': False,
-                    'response': "压力敏感度矩阵计算失败",
-                    'error': "敏感度计算过程中出现错误"
+                    'response': "Pressure sensitivity matrix calculation failed",
+                    'error': "Error occurred during sensitivity calculation"
                 }
 
-            self.log_info("敏感度矩阵计算成功")
+            self.log_info("Sensitivity matrix calculation successful")
 
-            # Step 3: 优化传感器布置
-            self.log_info("Step 3: 优化传感器布置...")
+            # Step 3: Optimize sensor placement
+            self.log_info("Step 3: Optimizing sensor placement...")
             solution = self.optimize_sensor_placement(sensitivity_data)
 
             if not solution:
-                self.log_error("传感器布置优化失败")
+                self.log_error("Sensor placement optimization failed")
                 return {
                     'success': False,
-                    'response': "传感器布置优化失败",
-                    'error': "优化过程中出现错误"
+                    'response': "Sensor placement optimization failed",
+                    'error': "Error occurred during optimization"
                 }
 
-            self.log_info("传感器布置优化成功")
+            self.log_info("Sensor placement optimization successful")
 
-            # Step 4: 保存结果
+            # Step 4: Save results
             save_result = self.save_sensor_results(solution, inp_file_path, conversation_id)
 
-            # Step 5: 生成可视化
+            # Step 5: Generate visualization
             viz_path = self.generate_visualization(solution, inp_file_path, conversation_id)
 
-            # Step 6: 生成分析报告
+            # Step 6: Generate analysis report
             stats = save_result.get('statistics', {})
 
             response_text = f"""
-传感器优化布置完成！
+Sensor optimization placement complete!
 
-📊 **布置概况**
-- 总传感器数: {stats.get('total_sensors', 0)}
-- 分区数量: {stats.get('partitions', 0)}
-- 敏感度阈值: {stats.get('threshold', 0.5)}
-- 综合评分: {stats.get('total_score', 0.0):.4f}
+📊 **Placement Overview**
+- Total sensors: {stats.get('total_sensors', 0)}
+- Partition count: {stats.get('partitions', 0)}
+- Sensitivity threshold: {stats.get('threshold', 0.5)}
+- Total score: {stats.get('total_score', 0.0):.4f}
 
-📈 **韧性分析**
-- 平均韧性分数: {stats.get('avg_resilience', 0.0):.4f}
-- 扰动比例: {self.default_params['demand_ratios']}
+📈 **Resilience Analysis**
+- Avg resilience score: {stats.get('avg_resilience', 0.0):.4f}
+- Perturbation ratios: {self.default_params['demand_ratios']}
 
-🎯 **分区详情**
+🎯 **Partition Details**
 """
 
             for partition_id, details in stats.get('partition_details', {}).items():
-                response_text += f"- 分区{partition_id}: {details['sensor_count']}个传感器 (韧性: {details['resilience_score']:.4f})\n"
+                response_text += f"- Partition {partition_id}: {details['sensor_count']} sensors (resilience: {details['resilience_score']:.4f})\n"
 
             response_text += f"""
-✅ 传感器布置优化策略：
-1. 基于压力敏感度矩阵进行传感器选择
-2. 考虑多种故障场景的韧性评估
-3. 确保每个分区至少2个传感器
-4. 优化检测覆盖率和传感器数量的平衡
+✅ Sensor placement optimization strategy:
+1. Sensor selection based on pressure sensitivity matrix
+2. Resilience evaluation considering multiple failure scenarios
+3. Ensure at least 2 sensors per partition
+4. Optimize balance between detection coverage and sensor count
 
-📁 结果文件已保存，包含详细的传感器位置和性能指标
+📁 Result files saved, containing detailed sensor locations and performance metrics
 """
 
-            # 生成专业prompt用于GPT分析
+            # Generate professional prompt for GPT analysis
             prompt = self._build_sensor_placement_prompt(solution, stats, user_message, save_result)
 
             result = {
                 'success': True,
                 'response': response_text,
-                'prompt': prompt,  # 添加专业prompt用于GPT分析
+                'prompt': prompt,  # Add professional prompt for GPT analysis
                 'solution': solution,
                 'statistics': stats
             }
 
-            # 添加文件下载信息
+            # Add file download info
             if save_result['success']:
                 result['csv_info'] = save_result
 
-            # 添加韧性分析文件信息
+            # Add resilience analysis file info
             resilience_csv_path = self._save_detailed_resilience_analysis(solution, conversation_id)
             if resilience_csv_path:
                 result['resilience_csv_info'] = resilience_csv_path
@@ -941,7 +941,7 @@ class SensorPlacement(BaseAgent):
             return result
 
         except Exception as e:
-            error_msg = f"传感器优化布置失败: {str(e)}"
+            error_msg = f"Sensor optimization placement failed: {str(e)}"
             self.log_error(error_msg)
             return {
                 'success': False,
@@ -950,62 +950,62 @@ class SensorPlacement(BaseAgent):
             }
 
     def _build_sensor_placement_prompt(self, solution, stats, user_message, save_result):
-        """构建传感器布置分析的专业prompt"""
+        """Build professional prompt for sensor placement analysis"""
 
-        # 获取传感器详细信息
+        # Get sensor detailed info
         sensors_info = []
         for partition_id, sensors in solution['sensors'].items():
             for sensor in sensors:
-                sensors_info.append(f"分区{partition_id}: 节点{sensor['node']} (敏感度: {sensor.get('avg_sensitivity', 0):.4f})")
+                sensors_info.append(f"Partition {partition_id}: Node {sensor['node']} (sensitivity: {sensor.get('avg_sensitivity', 0):.4f})")
 
-        # 获取韧性分析详情
+        # Get resilience analysis details
         resilience_details = []
         for partition_id, resilience_data in solution['resilience'].items():
-            resilience_details.append(f"分区{partition_id}: 韧性分数{resilience_data['resilience_score']:.4f}, {resilience_data['sensor_count']}个传感器")
+            resilience_details.append(f"Partition {partition_id}: Resilience score {resilience_data['resilience_score']:.4f}, {resilience_data['sensor_count']} sensors")
 
         prompt = f"""
-用户请求: {user_message}
+User request: {user_message}
 
-## 传感器优化布置分析报告
+## Sensor Optimization Placement Analysis Report
 
-### 📊 布置概况
-- **总传感器数**: {stats.get('total_sensors', 0)}个
-- **分区数量**: {stats.get('partitions', 0)}个
-- **最优敏感度阈值**: {stats.get('threshold', 0.5)}
-- **综合评分**: {stats.get('total_score', 0.0):.4f}
-- **平均韧性分数**: {stats.get('avg_resilience', 0.0):.4f}
+### 📊 Placement Overview
+- **Total sensors**: {stats.get('total_sensors', 0)}
+- **Partition count**: {stats.get('partitions', 0)}
+- **Optimal sensitivity threshold**: {stats.get('threshold', 0.5)}
+- **Total score**: {stats.get('total_score', 0.0):.4f}
+- **Avg resilience score**: {stats.get('avg_resilience', 0.0):.4f}
 
-### 🎯 传感器布置详情
+### 🎯 Sensor Placement Details
 {chr(10).join(sensors_info)}
 
-### 📈 韧性分析结果
+### 📈 Resilience Analysis Results
 {chr(10).join(resilience_details)}
 
-### 🔧 技术参数
-- **扰动比例**: {self.default_params['demand_ratios']}
-- **韧性权重**: {self.default_params['resilience_weight']}
-- **覆盖率权重**: {self.default_params['coverage_weight']}
+### 🔧 Technical Parameters
+- **Perturbation ratios**: {self.default_params['demand_ratios']}
+- **Resilience weight**: {self.default_params['resilience_weight']}
+- **Coverage weight**: {self.default_params['coverage_weight']}
 
-### 📁 生成文件
-- **传感器布置结果**: {save_result.get('filename', 'N/A')}
-- **文件大小**: {save_result.get('file_size', 0)} bytes
-- **记录数**: {save_result.get('sensor_count', 0)}条
+### 📁 Generated Files
+- **Sensor placement results**: {save_result.get('filename', 'N/A')}
+- **File size**: {save_result.get('file_size', 0)} bytes
+- **Record count**: {save_result.get('sensor_count', 0)} records
 
-### 🎯 优化策略说明
-1. **压力敏感度分析**: 基于需水量扰动计算各节点间的压力敏感度矩阵
-2. **分区内优化**: 在每个分区内选择影响力最大的节点作为传感器位置
-3. **韧性评估**: 考虑传感器故障场景，确保系统在部分传感器失效时仍能正常工作
-4. **多目标平衡**: 在检测覆盖率、韧性和传感器数量之间找到最优平衡
+### 🎯 Optimization Strategy Description
+1. **Pressure sensitivity analysis**: Calculate pressure sensitivity matrix between nodes based on demand perturbation
+2. **Partition optimization**: Select nodes with maximum influence within each partition as sensor locations
+3. **Resilience evaluation**: Consider sensor failure scenarios to ensure system works normally with partial sensor failures
+4. **Multi-objective balance**: Find optimal balance between detection coverage, resilience and sensor count
 
-请基于以上技术分析，为用户提供专业的传感器布置方案解读和建议。重点说明：
-1. 传感器布置的科学性和合理性
-2. 韧性设计的重要性和效果
-3. 各分区传感器配置的特点
-4. 实际应用中的注意事项和建议
+Based on the above technical analysis, please provide professional interpretation and suggestions for the sensor placement solution. Focus on:
+1. Scientific validity and reasonableness of sensor placement
+2. Importance and effectiveness of resilience design
+3. Characteristics of sensor configuration in each partition
+4. Practical application considerations and suggestions
 
-请在回复的最后使用以下签名格式：
+Please use the following signature format at the end of your reply:
 
-祝好，
+Best regards,
 
 Tianwei Mu
 Guangzhou Institute of Industrial Intelligence

@@ -1,5 +1,5 @@
 """
-基础智能体类
+Base Agent Class
 """
 import os
 import json
@@ -8,7 +8,7 @@ from datetime import datetime
 from abc import ABC, abstractmethod
 
 class BaseAgent(ABC):
-    """智能体基类"""
+    """Agent base class"""
     
     def __init__(self, name: str):
         self.name = name
@@ -16,7 +16,7 @@ class BaseAgent(ABC):
         self.logger = self._setup_logger()
     
     def _setup_logger(self):
-        """设置日志记录器"""
+        """Setup logger"""
         logger = logging.getLogger(f"agent.{self.name}")
         logger.setLevel(logging.INFO)
         
@@ -32,23 +32,23 @@ class BaseAgent(ABC):
     
     @abstractmethod
     def process(self, *args, **kwargs):
-        """处理输入的抽象方法"""
+        """Abstract method to process input"""
         pass
     
     def log_info(self, message: str):
-        """记录信息日志"""
+        """Log info message"""
         self.logger.info(f"[{self.name}] {message}")
 
     def log_warning(self, message: str):
-        """记录警告日志"""
+        """Log warning message"""
         self.logger.warning(f"[{self.name}] {message}")
 
     def log_error(self, message: str):
-        """记录错误日志"""
+        """Log error message"""
         self.logger.error(f"[{self.name}] {message}")
     
     def save_result(self, result: dict, filename: str):
-        """保存处理结果"""
+        """Save processing result"""
         try:
             os.makedirs('logs', exist_ok=True)
             filepath = os.path.join('logs', filename)
@@ -56,14 +56,14 @@ class BaseAgent(ABC):
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
             
-            self.log_info(f"结果已保存到: {filepath}")
+            self.log_info(f"Result saved to: {filepath}")
             return filepath
         except Exception as e:
-            self.log_error(f"保存结果失败: {e}")
+            self.log_error(f"Failed to save result: {e}")
             return None
     
     def get_status(self):
-        """获取智能体状态"""
+        """Get agent status"""
         return {
             'name': self.name,
             'created_at': self.created_at.isoformat(),

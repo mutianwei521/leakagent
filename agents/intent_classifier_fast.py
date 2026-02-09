@@ -1,6 +1,6 @@
 """
-快速意图识别分类器
-使用缓存机制避免重复计算embedding向量
+Fast Intent Recognition Classifier
+Use caching mechanism to avoid repeated embedding vector calculation
 """
 import os
 import json
@@ -12,71 +12,71 @@ from sklearn.metrics.pairwise import cosine_similarity
 from .base_agent import BaseAgent
 
 class FastIntentClassifier(BaseAgent):
-    """基于缓存的快速意图识别分类器"""
+    """Cache-based fast intent recognition classifier"""
     
     def __init__(self):
         super().__init__("FastIntentClassifier")
 
-        # 设置OpenAI API密钥和配置
-        openai.api_base = "https://api.chatanywhere.tech"
-        openai.api_key = "sk-eHk6ICs2KGZ2M2xJ0AZK9DJu3DVqgO91EnatH7FsUokii7HH"
+        # Set OpenAI API key and configuration
+        openai.api_base = ""
+        openai.api_key = ""
         
-        # 缓存文件路径
+        # Cache file path
         self.cache_dir = "cache"
         self.embeddings_cache_file = os.path.join(self.cache_dir, "intent_embeddings.pkl")
         self.examples_hash_file = os.path.join(self.cache_dir, "examples_hash.txt")
         
-        # 确保缓存目录存在
+        # Ensure cache directory exists
         os.makedirs(self.cache_dir, exist_ok=True)
         
-        # 预定义的意图向量库（优化版 - 减少示例数量但保持准确性）
+        # Predefined intent vector library (optimized version - reduced examples while maintaining accuracy)
         self.intent_examples = {
             'hydraulic_simulation': [
-                "进行水力计算", "运行水力模拟", "计算管网压力", "分析流量分布", "水力分析",
-                "压力计算", "流量模拟", "水力仿真", "管网仿真", "压力分析"
+                "Perform hydraulic calculation", "Run hydraulic simulation", "Calculate network pressure", "Analyze flow distribution", "Hydraulic analysis",
+                "Pressure calculation", "Flow simulation", "Hydraulic simulation", "Network simulation", "Pressure analysis"
             ],
             'network_analysis': [
-                "分析管网结构", "查看管网信息", "管网拓扑分析", "管网概况", "网络结构",
-                "拓扑结构", "管网组成", "节点分布", "管段统计"
+                "Analyze network structure", "View network info", "Network topology analysis", "Network overview", "Network structure",
+                "Topology structure", "Network composition", "Node distribution", "Pipe statistics"
             ],
             'partition_analysis': [
-                "管网分区", "网络分区", "聚类分析", "分区分析", "区域划分",
-                "分成几个区", "分成几个分区", "聚类成几个", "管网划分", "节点聚类",
-                "分区优化", "离群点检测", "分区可视化", "FCM聚类", "模糊聚类"
+                "Network partition", "Network Partition", "Clustering analysis", "Partition analysis", "Region division",
+                "Divide into how many areas", "Divide into how many partitions", "Cluster into how many", "Network division", "Node clustering",
+                "Partition optimization", "Outlier detection", "Partition visualization", "FCM clustering", "Fuzzy clustering"
             ],
             'sensor_placement': [
-                "传感器布置", "传感器优化", "压力监测点布置", "监测点优化", "传感器选择",
-                "压力传感器", "监测点选择", "传感器配置", "监测网络优化", "韧性分析",
-                "检测覆盖率", "敏感度分析", "检测点布置", "压力检测"
+                "Sensor placement", "Sensor optimization", "Pressure monitoring point layout", "Monitoring point optimization", "Sensor selection",
+                "Pressure sensor", "Monitoring point selection", "Sensor configuration", "Monitoring network optimization", "Resilience analysis",
+                "Detection coverage", "Sensitivity analysis", "Detection point layout", "Pressure detection"
             ],
             'leak_detection': [
-                "漏损检测", "漏损分析", "泄漏检测", "异常检测", "训练漏损模型", "漏损模型训练",
-                "故障检测", "漏损识别", "泄漏识别", "漏损定位", "漏损监测", "检测模型训练",
-                "漏损机器学习", "漏损预测", "异常预测", "故障预测"
+                "Leak detection", "Leakage analysis", "Leak testing", "Anomaly detection", "Train leak model", "Leak model training",
+                "Fault detection", "Leak identification", "Leak recognition", "Leak localization", "Leak monitoring", "Detection model training",
+                "Leak machine learning", "Leak prediction", "Anomaly prediction", "Fault prediction"
             ],
             'general_inquiry': [
-                "这是什么文件", "文件内容介绍", "基本信息查询", "帮助信息", "使用说明", "功能介绍"
+                "What is this file", "File content introduction", "Basic info query", "Help info", "Usage instructions", "Function introduction"
             ]
         }
         
-        # 计算意图向量（使用缓存）
+        # Calculate intent vectors (using cache)
         self.intent_embeddings = None
         self._load_or_compute_embeddings()
     
     def _compute_examples_hash(self):
-        """计算示例文本的哈希值，用于检测变化"""
+        """Calculate hash value of example texts to detect changes"""
         examples_str = json.dumps(self.intent_examples, sort_keys=True)
         return hashlib.md5(examples_str.encode()).hexdigest()
     
     def _should_recompute_embeddings(self):
-        """检查是否需要重新计算embeddings"""
+        """Check if embeddings need to be recomputed"""
         if not os.path.exists(self.embeddings_cache_file):
             return True
         
         if not os.path.exists(self.examples_hash_file):
             return True
         
-        # 检查示例是否有变化
+        # Check if examples have changed
         current_hash = self._compute_examples_hash()
         try:
             with open(self.examples_hash_file, 'r') as f:
@@ -86,33 +86,33 @@ class FastIntentClassifier(BaseAgent):
             return True
     
     def _save_embeddings_cache(self):
-        """保存embeddings到缓存文件"""
+        """Save embeddings to cache file"""
         try:
             with open(self.embeddings_cache_file, 'wb') as f:
                 pickle.dump(self.intent_embeddings, f)
             
-            # 保存哈希值
+            # Save hash value
             current_hash = self._compute_examples_hash()
             with open(self.examples_hash_file, 'w') as f:
                 f.write(current_hash)
             
-            self.log_info("Embeddings缓存已保存")
+            self.log_info("Embeddings cache saved")
         except Exception as e:
-            self.log_error(f"保存embeddings缓存失败: {e}")
+            self.log_error(f"Failed to save embeddings cache: {e}")
     
     def _load_embeddings_cache(self):
-        """从缓存文件加载embeddings"""
+        """Load embeddings from cache file"""
         try:
             with open(self.embeddings_cache_file, 'rb') as f:
                 self.intent_embeddings = pickle.load(f)
-            self.log_info("从缓存加载embeddings成功")
+            self.log_info("Successfully loaded embeddings from cache")
             return True
         except Exception as e:
-            self.log_error(f"加载embeddings缓存失败: {e}")
+            self.log_error(f"Failed to load embeddings cache: {e}")
             return False
     
     def _get_embedding(self, text: str):
-        """获取文本的embedding向量"""
+        """Get embedding vector for text"""
         try:
             response = openai.Embedding.create(
                 model="text-embedding-ada-002",
@@ -120,12 +120,12 @@ class FastIntentClassifier(BaseAgent):
             )
             return np.array(response['data'][0]['embedding'])
         except Exception as e:
-            self.log_error(f"获取embedding失败: {e}")
+            self.log_error(f"Failed to get embedding: {e}")
             return None
     
     def _compute_intent_embeddings(self):
-        """计算各个意图的embedding向量"""
-        self.log_info("开始计算意图向量...")
+        """Calculate embedding vectors for each intent"""
+        self.log_info("Starting to calculate intent vectors...")
         
         try:
             self.intent_embeddings = {}
@@ -142,58 +142,58 @@ class FastIntentClassifier(BaseAgent):
                     
                     processed += 1
                     if processed % 5 == 0:
-                        self.log_info(f"进度: {processed}/{total_examples}")
+                        self.log_info(f"Progress: {processed}/{total_examples}")
                 
                 if embeddings:
-                    # 计算平均向量作为意图向量
+                    # Calculate average vector as intent vector
                     self.intent_embeddings[intent] = np.mean(embeddings, axis=0)
-                    self.log_info(f"意图 '{intent}' 向量计算完成，样本数: {len(embeddings)}")
+                    self.log_info(f"Intent '{intent}' vector calculation complete, sample count: {len(embeddings)}")
                 else:
-                    self.log_error(f"意图 '{intent}' 没有有效的embedding向量")
+                    self.log_error(f"Intent '{intent}' has no valid embedding vectors")
             
-            self.log_info("所有意图向量计算完成")
+            self.log_info("All intent vector calculation complete")
             
-            # 保存到缓存
+            # Save to cache
             self._save_embeddings_cache()
             
         except Exception as e:
-            self.log_error(f"计算意图向量失败: {e}")
+            self.log_error(f"Failed to calculate intent vectors: {e}")
             self.intent_embeddings = {}
     
     def _load_or_compute_embeddings(self):
-        """加载或计算embeddings"""
+        """Load or compute embeddings"""
         if self._should_recompute_embeddings():
-            self.log_info("需要重新计算embeddings")
+            self.log_info("Need to recompute embeddings")
             self._compute_intent_embeddings()
         else:
-            self.log_info("从缓存加载embeddings")
+            self.log_info("Loading embeddings from cache")
             if not self._load_embeddings_cache():
-                self.log_info("缓存加载失败，重新计算")
+                self.log_info("Cache loading failed, recomputing")
                 self._compute_intent_embeddings()
     
     def classify_intent(self, user_message: str):
-        """分类用户意图"""
+        """Classify user intent"""
         if not self.intent_embeddings:
-            self.log_error("意图向量未初始化")
+            self.log_error("Intent vectors not initialized")
             return {
                 'intent': 'general_inquiry',
                 'confidence': 0.0,
                 'all_similarities': {},
-                'error': '意图向量未初始化'
+                'error': 'Intent vectors not initialized'
             }
         
         try:
-            # 获取用户消息的embedding
+            # Get user message embedding
             user_embedding = self._get_embedding(user_message)
             if user_embedding is None:
                 return {
                     'intent': 'general_inquiry',
                     'confidence': 0.0,
                     'all_similarities': {},
-                    'error': '无法获取用户消息的embedding'
+                    'error': 'Cannot get user message embedding'
                 }
             
-            # 计算与各个意图的相似度
+            # Calculate similarity with each intent
             similarities = {}
             user_embedding = user_embedding.reshape(1, -1)
             
@@ -202,11 +202,11 @@ class FastIntentClassifier(BaseAgent):
                 similarity = cosine_similarity(user_embedding, intent_vector)[0][0]
                 similarities[intent] = float(similarity)
             
-            # 返回最高相似度的意图和置信度
+            # Return intent with highest similarity and confidence
             best_intent = max(similarities, key=similarities.get)
             confidence = similarities[best_intent]
             
-            self.log_info(f"意图识别结果: {best_intent} (置信度: {confidence:.3f})")
+            self.log_info(f"Intent recognition result: {best_intent} (Confidence: {confidence:.3f})")
             
             return {
                 'intent': best_intent,
@@ -215,7 +215,7 @@ class FastIntentClassifier(BaseAgent):
             }
             
         except Exception as e:
-            self.log_error(f"意图识别失败: {e}")
+            self.log_error(f"Intent recognition failed: {e}")
             return {
                 'intent': 'general_inquiry',
                 'confidence': 0.0,
@@ -224,5 +224,5 @@ class FastIntentClassifier(BaseAgent):
             }
     
     def process(self, user_message: str):
-        """处理用户消息，返回意图识别结果"""
+        """Process user message, return intent recognition result"""
         return self.classify_intent(user_message)

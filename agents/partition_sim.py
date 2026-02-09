@@ -1,6 +1,6 @@
 """
-PartitionSim 管网分区智能体
-负责处理.inp文件，进行管网FCM聚类分区和离群点检测
+PartitionSim Network Partition Agent
+Responsible for processing .inp files, performing network FCM clustering partition and outlier detection
 """
 import os
 import re
@@ -23,119 +23,110 @@ except ImportError as e:
     SKFUZZY_AVAILABLE = False
 
 class PartitionSim(BaseAgent):
-    """管网分区智能体"""
+    """Network partition agent"""
     
     def __init__(self):
         super().__init__("PartitionSim")
 
         if not WNTR_AVAILABLE:
-            self.log_error("WNTR库未安装，管网分析功能不可用")
+            self.log_error("WNTR library not installed, network analysis function unavailable")
         if not SKFUZZY_AVAILABLE:
-            self.log_error("scikit-fuzzy库未安装，FCM聚类功能不可用")
+            self.log_error("scikit-fuzzy library not installed, FCM clustering function unavailable")
 
         self.intent_classifier = IntentClassifier()
         self.downloads_folder = 'downloads'
         os.makedirs(self.downloads_folder, exist_ok=True)
 
-        # 缓存机制：避免重复计算敏感度矩阵
+        # Cache mechanism: avoid repeated sensitivity matrix calculation
         self._sensitivity_cache = {}  # {file_path: {matrix, last_modified}}
         
-        # 默认参数
+        # Default parameters
         self.default_params = {
-            'k': 5,  # 默认分区数
-            'm': 1.5,  # FCM模糊度参数
-            'error': 1e-6,  # 收敛阈值
-            'maxiter': 1000,  # 最大迭代次数
-            'perturb_rate': 0.1,  # 扰动率
-            'k_nearest': 10,  # KNN参数
-            'outliers_detection': True,  # 是否进行离群点检测
-            'seed': 42  # 随机种子
+            'k': 5,  # Default partition count
+            'm': 1.5,  # FCM fuzziness parameter
+            'error': 1e-6,  # Convergence threshold
+            'maxiter': 1000,  # Max iteration count
+            'perturb_rate': 0.1,  # Perturbation rate
+            'k_nearest': 10,  # KNN parameter
+            'outliers_detection': True,  # Whether to perform outlier detection
+            'seed': 42  # Random seed
         }
     
     def parse_user_intent(self, user_message: str):
-        """解析用户意图和参数"""
+        """Parse user intent and parameters"""
         intent_result = self.intent_classifier.classify_intent(user_message)
 
-        # 提取分区相关参数
+        # Extract partition-related parameters
         params = self.default_params.copy()
 
-        # 提取分区数量 - 支持中文和英文
+        # Extract partition count
         k_patterns = [
-            # 英文格式
             r'partition\s+into\s+(\d+)\s+regions?',
             r'partition\s+into\s+(\d+)\s+areas?',
             r'(\d+)\s+regions?',
             r'(\d+)\s+partitions?',
-            # 中文格式
-            r'分成?(\d+)个?分区',
-            r'分成?(\d+)个?区域?',
-            r'分成?(\d+)个?区',
-            r'(\d+)个?分区',
-            r'(\d+)个?区域?',
-            r'(\d+)个?区',
             r'k\s*=\s*(\d+)',
-            r'聚类数\s*[：:]\s*(\d+)',
-            r'分区数\s*[：:]\s*(\d+)',
-            r'分区数目\s*[：:为]\s*(\d+)',
-            r'分区数目为(\d+)'
+            r'partition\s*count\s*[: :]\s*(\d+)',
+            r'number\s+of\s+partitions\s*[: :]\s*(\d+)',
+            r'partition\s+number\s*[: :]\s*(\d+)'
         ]
 
         for pattern in k_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
                 params['k'] = int(match.group(1))
-                self.logger.info(f"[PartitionSim] 解析到分区数量: {params['k']} (匹配模式: {pattern})")
+                self.logger.info(f"[PartitionSim] Parsed partition count: {params['k']} (Matched pattern: {pattern})")
                 break
         
-        # 提取FCM参数
+        # Extract FCM parameters
         m_patterns = [
             r'm\s*=\s*([\d.]+)',
-            r'模糊度\s*[：:=]\s*([\d.]+)',
-            r'模糊参数\s*[：:=]\s*([\d.]+)',
-            r'模糊度=([\d.]+)'
+            r'fuzziness\s*[: :=]\s*([\d.]+)',
+            r'fuzzy\s*parameter\s*[: :=]\s*([\d.]+)',
+            r'fuzziness\s*=\s*([\d.]+)'
         ]
         
         for pattern in m_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
                 params['m'] = float(match.group(1))
-                self.logger.info(f"[PartitionSim] 解析到模糊度参数: {params['m']} (匹配模式: {pattern})")
+                self.logger.info(f"[PartitionSim] Parsed fuzziness parameter: {params['m']} (Matched pattern: {pattern})")
                 break
         
-        # 提取扰动率
+        # Extract perturbation rate
         perturb_patterns = [
-            r'扰动率\s*[：:]\s*([\d.]+)',
-            r'扰动率([\d.]+)',
-            r'perturb[_\s]*rate\s*[：:=]\s*([\d.]+)'
+            r'perturbation\s*rate\s*[: :]\s*([\d.]+)',
+            r'perturbation\s*rate([\d.]+)',
+            r'perturb[_\s]*rate\s*[: :=]\s*([\d.]+)'
         ]
         
         for pattern in perturb_patterns:
             match = re.search(pattern, user_message, re.IGNORECASE)
             if match:
                 params['perturb_rate'] = float(match.group(1))
-                self.logger.info(f"[PartitionSim] 解析到扰动率: {params['perturb_rate']} (匹配模式: {pattern})")
+                self.logger.info(f"[PartitionSim] Parsed perturbation rate: {params['perturb_rate']} (Matched pattern: {pattern})")
                 break
         
-        # 检测是否需要离群点处理
+        # Detect if outlier processing is needed
         outlier_disable_keywords = [
-            '不检测离群点', '不处理离群点', '跳过离群点', '不要离群点检测',
-            '不进行离群点检测', '禁用离群点检测', '关闭离群点检测',
-            '不剔除异常点', '不处理异常点', '跳过异常点', '不要异常点检测',
+            'no outlier detection', 'disable outlier detection', 'skip outlier',
+            'do not detect outliers', 'no outliers', 'disable outliers',
+            'ignore outliers', 'skip outlier detection',
             'no outlier', 'skip outlier', 'disable outlier'
         ]
 
         outlier_enable_keywords = [
-            '检测离群点', '处理离群点', '离群点检测', '进行离群点检测',
-            '启用离群点检测', '开启离群点检测', '剔除异常点', '处理异常点',
-            '异常点检测', '异常点剔除', 'outlier detection', 'remove outlier'
+            'detect outliers', 'enable outlier detection', 'process outliers',
+            'perform outlier detection', 'check for outliers', 'remove outliers',
+            'outlier detection', 'outlier removal'
         ]
 
         if any(keyword in user_message for keyword in outlier_disable_keywords):
             params['outliers_detection'] = False
-            self.logger.info(f"[PartitionSim] 解析到禁用离群点检测")
+            self.logger.info(f"[PartitionSim] Parsed disable outlier detection")
         elif any(keyword in user_message for keyword in outlier_enable_keywords):
             params['outliers_detection'] = True
-            self.logger.info(f"[PartitionSim] 解析到启用离群点检测")
+            self.logger.info(f"[PartitionSim] Parsed enable outlier detection")
         
         return {
             'intent': intent_result['intent'],
@@ -144,25 +135,25 @@ class PartitionSim(BaseAgent):
         }
     
     def parse_network(self, inp_file_path: str):
-        """解析管网文件，提取基本信息"""
+        """Parse network file, extract basic information"""
         if not WNTR_AVAILABLE:
-            return {'error': 'WNTR库未安装'}
+            return {'error': 'WNTR library not installed'}
 
         try:
-            # 检查缓存
+            # Check cache
             if inp_file_path in getattr(self, '_network_cache', {}):
                 file_mtime = os.path.getmtime(inp_file_path)
                 cached_data = self._network_cache[inp_file_path]
                 if cached_data['last_modified'] == file_mtime:
-                    self.log_info(f"使用缓存的管网信息: {inp_file_path}")
+                    self.log_info(f"Using cached network info: {inp_file_path}")
                     return cached_data['network_info']
 
-            self.log_info(f"开始解析管网文件: {inp_file_path}")
+            self.log_info(f"Starting to parse network file: {inp_file_path}")
 
-            # 读取管网文件
+            # Read network file
             wn = wntr.network.WaterNetworkModel(inp_file_path)
 
-            # 提取关键信息
+            # Extract key information
             network_info = {
                 'nodes': {
                     'junctions': len(wn.junction_name_list),
@@ -184,13 +175,13 @@ class PartitionSim(BaseAgent):
                 }
             }
 
-            self.log_info(f"管网解析完成: {network_info['nodes']['total']}个节点, {network_info['links']['total']}个管段")
+            self.log_info(f"Network parsing complete: {network_info['nodes']['total']} nodes, {network_info['links']['total']} links")
 
-            # 初始化缓存
+            # Initialize cache
             if not hasattr(self, '_network_cache'):
                 self._network_cache = {}
 
-            # 更新缓存
+            # Update cache
             file_mtime = os.path.getmtime(inp_file_path)
             self._network_cache[inp_file_path] = {
                 'network_info': network_info,
@@ -200,37 +191,37 @@ class PartitionSim(BaseAgent):
             return network_info
 
         except Exception as e:
-            error_msg = f"解析管网文件失败: {e}"
+            error_msg = f"Parsing network file failed: {e}"
             self.log_error(error_msg)
             return {'error': error_msg}
 
     def load_network(self, inp_file_path: str):
-        """加载水网络模型"""
+        """Load water network model"""
         if not WNTR_AVAILABLE:
-            return None, {'error': 'WNTR库未安装'}
+            return None, {'error': 'WNTR library not installed'}
 
         try:
             wn = wntr.network.WaterNetworkModel(inp_file_path)
-            self.log_info(f"加载网络: 节点={len(wn.node_name_list)}, "
-                         f"需水节点={len(wn.junction_name_list)}, "
-                         f"管段={len(wn.link_name_list)}")
+            self.log_info(f"Network loaded: nodes={len(wn.node_name_list)}, "
+                         f"junctions={len(wn.junction_name_list)}, "
+                         f"links={len(wn.link_name_list)}")
             return wn, None
         except Exception as e:
-            error_msg = f"加载网络文件失败: {str(e)}"
+            error_msg = f"Failed to load network file: {str(e)}"
             self.log_error(error_msg)
             return None, {'error': error_msg}
     
     def normalize_matrix(self, S):
-        """对敏感度矩阵进行标准化和归一化处理"""
-        # 标准化：减去均值，除以标准差
+        """Standardize and normalize sensitivity matrix"""
+        # Standardization: subtract mean, divide by standard deviation
         S_mean = np.mean(S, axis=0)
         S_std = np.std(S, axis=0)
-        # 添加一个小的阈值，避免除以0
+        # Add small threshold to avoid division by zero
         epsilon = 1e-10
         S_std = np.where(S_std == 0, epsilon, S_std)
         S_std = (S - S_mean) / S_std
         
-        # 归一化：将值映射到[0,1]区间
+        # Normalize: map values to [0,1] interval
         S_min = np.min(S_std)
         S_max = np.max(S_std)
         S_n = (S_std - S_min) / (S_max - S_min)
@@ -238,88 +229,88 @@ class PartitionSim(BaseAgent):
         return S_n
     
     def compute_sensitivity_matrix(self, inp_file_path: str, perturb_rate: float):
-        """计算敏感度矩阵"""
+        """Calculate sensitivity matrix"""
         if not WNTR_AVAILABLE:
-            return None, None, {'error': 'WNTR库未安装'}
+            return None, None, {'error': 'WNTR library not installed'}
         
         try:
-            # 检查缓存
+            # Check cache
             cache_key = f"{inp_file_path}_{perturb_rate}"
             if cache_key in self._sensitivity_cache:
                 file_mtime = os.path.getmtime(inp_file_path)
                 cached_data = self._sensitivity_cache[cache_key]
                 if cached_data['last_modified'] == file_mtime:
-                    self.log_info(f"使用缓存的敏感度矩阵")
+                    self.log_info(f"Using cached sensitivity matrix")
                     return cached_data['nodes'], cached_data['demands'], cached_data['matrix']
             
-            self.log_info(f"开始计算敏感度矩阵，扰动率: {perturb_rate}")
+            self.log_info(f"Starting sensitivity matrix calculation, perturbation rate: {perturb_rate}")
             
-            # 加载基线网络模型
+            # Load baseline network model
             wn0, error = self.load_network(inp_file_path)
             if error:
                 return None, None, error
             
-            # 运行基线仿真获取压力
+            # Run baseline simulation to get pressure
             sim = wntr.sim.EpanetSimulator(wn0)
             res = sim.run_sim()
             
-            # 获取所有节点和需水节点列表
+            # Get all nodes and demand nodes list
             node_list = wn0.node_name_list
             demand_nodes = wn0.junction_name_list
 
-            # 计算总实际需水量
+            # Calculate total actual demand
             total_demand = 0
             for name in demand_nodes:
                 node_demands = res.node['demand'].loc[:, name]
                 total_demand += node_demands.sum()
 
-            # 初始化敏感度矩阵
+            # Initialize sensitivity matrix
             S = np.zeros((len(demand_nodes), len(demand_nodes)))
-            # 重新加载网络用于扰动仿真
+            # Reload network for perturbation simulation
             wn, _ = self.load_network(inp_file_path)
             
-            # 获取基线压力
+            # Get baseline pressure
             base_p = res.node['pressure'].loc[:, demand_nodes].values
-            # 计算平均扰动量
+            # Calculate average perturbation amount
             delta = total_demand * perturb_rate / len(res.node['demand'])
 
-            # 对每个需水节点进行扰动
+            # Perturb each demand node
             for j, name in enumerate(demand_nodes):
-                self.log_info(f"处理节点 {j+1}/{len(demand_nodes)}: {name}")
+                self.log_info(f"Processing node {j+1}/{len(demand_nodes)}: {name}")
                 
-                # 获取该节点的需水时间序列
+                # Get demand time series for this node
                 ts_list = wn.get_node(name).demand_timeseries_list
-                # 保存原始需水量
+                # Save original demand
                 orig_values = [d.base_value for d in ts_list]
                 
-                # 对每个时间序列进行扰动
+                # Perturb each time series
                 for d in ts_list:
                     if d.base_value > 0:
                         d.base_value = d.base_value + d.base_value * perturb_rate
                     else:
                         d.base_value = d.base_value + delta
                 
-                # 运行扰动后仿真
+                # Run perturbed simulation
                 sim = wntr.sim.EpanetSimulator(wn)
                 res_pert = sim.run_sim()
                 
-                # 获取扰动后的压力
+                # Get perturbed pressure
                 pert_p = res_pert.node['pressure'].loc[:, demand_nodes].values
                 
-                # 计算当前扰动节点的压力差
+                # Calculate pressure difference for current perturbed node
                 current_node_p_diff = np.abs(pert_p[:, j] - base_p[:, j])
                 
-                # 计算敏感度
+                # Calculate sensitivity
                 with np.errstate(divide='ignore', invalid='ignore'):
                     S[:, j] = np.mean(np.where(current_node_p_diff[:, np.newaxis] != 0,
                                               np.abs(pert_p - base_p) / current_node_p_diff[:, np.newaxis],
                                               0), axis=0)
                 
-                # 恢复原始需水量
+                # Restore original demand
                 for d, orig in zip(ts_list, orig_values):
                     d.base_value = orig
             
-            # 缓存结果
+            # Cache results
             self._sensitivity_cache[cache_key] = {
                 'nodes': node_list,
                 'demands': demand_nodes,
@@ -327,40 +318,40 @@ class PartitionSim(BaseAgent):
                 'last_modified': os.path.getmtime(inp_file_path)
             }
             
-            self.log_info(f"敏感度矩阵计算完成，矩阵大小: {S.shape}")
+            self.log_info(f"Sensitivity matrix calculation complete, matrix size: {S.shape}")
             return node_list, demand_nodes, S
             
         except Exception as e:
-            error_msg = f"计算敏感度矩阵失败: {str(e)}"
+            error_msg = f"Calculate sensitivity matrix failed: {str(e)}"
             self.log_error(error_msg)
             return None, None, {'error': error_msg}
 
     def perform_fcm_clustering(self, S_normalized, params):
-        """执行FCM聚类"""
+        """Execute FCM clustering"""
         if not SKFUZZY_AVAILABLE:
-            return None, None, {'error': 'scikit-fuzzy库未安装'}
+            return None, None, {'error': 'scikit-fuzzy library not installed'}
 
         try:
-            self.log_info(f"开始FCM聚类，参数: k={params['k']}, m={params['m']}")
+            self.log_info(f"Starting FCM clustering, parameters: k={params['k']}, m={params['m']}")
 
-            # 设置随机种子
+            # Set random seed
             np.random.seed(params['seed'])
 
-            # 执行FCM聚类
+            # Execute FCM clustering
             cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
-                data=S_normalized.T,      # 输入数据矩阵，需要转置
-                c=params['k'],            # 聚类数量
-                m=params['m'],            # 模糊度参数
-                error=params['error'],    # 收敛阈值
-                maxiter=params['maxiter'], # 最大迭代次数
-                init=None,                # 初始聚类中心
-                seed=params['seed']       # 随机种子
+                data=S_normalized.T,      # Input data matrix, needs transpose
+                c=params['k'],            # Number of clusters
+                m=params['m'],            # Fuzziness parameter
+                error=params['error'],    # Convergence threshold
+                maxiter=params['maxiter'], # Max iteration count
+                init=None,                # Initial cluster centers
+                seed=params['seed']       # Random seed
             )
 
-            # 获取初始标签（从1开始）
+            # Get initial labels (starting from 1)
             raw_labels = np.argmax(u, axis=0) + 1
 
-            self.log_info(f"FCM聚类完成，收敛迭代次数: {p}, 模糊分割系数: {fpc:.4f}")
+            self.log_info(f"FCM clustering complete, convergence iterations: {p}, fuzzy partition coefficient: {fpc:.4f}")
 
             return raw_labels, {
                 'centers': cntr,
@@ -371,28 +362,28 @@ class PartitionSim(BaseAgent):
             }, None
 
         except Exception as e:
-            error_msg = f"FCM聚类失败: {str(e)}"
+            error_msg = f"FCM clustering failed: {str(e)}"
             self.log_error(error_msg)
             return None, None, {'error': error_msg}
 
     def check_connectivity(self, node_connections, cluster_nodes):
-        """使用Warshall算法检查节点连通性"""
+        """Use Warshall algorithm to check node connectivity"""
         n = len(cluster_nodes)
         adj_matrix = np.zeros((n, n), dtype=int)
 
-        # 填充邻接矩阵
+        # Fill adjacency matrix
         for i, node1 in enumerate(cluster_nodes):
             for j, node2 in enumerate(cluster_nodes):
                 if i == j:
                     adj_matrix[i, j] = 1
                 else:
-                    # 检查两个节点是否直接相连
+                    # Check if two nodes are directly connected
                     mask1 = (node_connections[:, 0] == node1) & (node_connections[:, 1] == node2)
                     mask2 = (node_connections[:, 0] == node2) & (node_connections[:, 1] == node1)
                     if np.any(mask1) or np.any(mask2):
                         adj_matrix[i, j] = 1
 
-        # 使用Warshall算法计算传递闭包
+        # Use Warshall algorithm to calculate transitive closure
         for k in range(n):
             for i in range(n):
                 for j in range(n):
@@ -401,7 +392,7 @@ class PartitionSim(BaseAgent):
         return adj_matrix
 
     def find_connected_components(self, connect_matrix):
-        """找出所有连通分量"""
+        """Find all connected components"""
         n = len(connect_matrix)
         visited = np.zeros(n, dtype=bool)
         components = []
@@ -424,9 +415,9 @@ class PartitionSim(BaseAgent):
         return components
 
     def assign_unassigned_nodes_by_nearest_neighbor(self, wn, nodes, demands, labels, params):
-        """将未分配节点分配到最近邻分区"""
+        """Assign unassigned nodes to nearest neighbor partition"""
 
-        # 找到未分配的需水节点
+        # Find unassigned demand nodes
         unassigned_indices = []
         for i, demand_node in enumerate(demands):
             if labels[i] == 0:
@@ -435,17 +426,17 @@ class PartitionSim(BaseAgent):
         if len(unassigned_indices) == 0:
             return labels
 
-        self.log_info(f"开始为{len(unassigned_indices)}个未分配需水节点分配最近邻分区")
+        self.log_info(f"Starting to assign {len(unassigned_indices)} unassigned demand nodes to nearest neighbor partition")
 
-        # 获取节点坐标
+        # Get node coordinates
         node_coords = {}
-        layout = None  # 用于没有坐标的节点
+        layout = None  # For nodes without coordinates
 
         for node_name in nodes:
             try:
                 coord = wn.get_node(node_name).coordinates
                 if coord is None or coord == (0, 0):
-                    # 如果没有坐标，使用网络布局
+                    # If no coordinates, use network layout
                     if layout is None:
                         G = wn.to_graph().to_undirected()
                         layout = nx.spring_layout(G, seed=params['seed'])
@@ -457,7 +448,7 @@ class PartitionSim(BaseAgent):
                 coord = layout.get(node_name, (0, 0))
             node_coords[node_name] = coord
 
-        # 创建已分配节点的分区信息
+        # Create partition information for assigned nodes
         assigned_nodes_by_partition = {}
         for i, demand_node in enumerate(demands):
             if labels[i] > 0:
@@ -466,7 +457,7 @@ class PartitionSim(BaseAgent):
                     assigned_nodes_by_partition[partition] = []
                 assigned_nodes_by_partition[partition].append((demand_node, node_coords[demand_node]))
 
-        # 为每个未分配节点找到最近的分区
+        # Find nearest partition for each unassigned node
         labels_copy = labels.copy()
 
         for unassigned_idx in unassigned_indices:
@@ -474,12 +465,12 @@ class PartitionSim(BaseAgent):
             unassigned_coord = node_coords[unassigned_node]
 
             min_distance = float('inf')
-            nearest_partition = 1  # 默认分区
+            nearest_partition = 1  # Default partition
 
-            # 遍历所有分区，找到最近的节点
+            # Traverse all partitions, find nearest node
             for partition, nodes_in_partition in assigned_nodes_by_partition.items():
                 for assigned_node, assigned_coord in nodes_in_partition:
-                    # 计算欧氏距离
+                    # Calculate Euclidean distance
                     distance = np.sqrt((unassigned_coord[0] - assigned_coord[0])**2 +
                                      (unassigned_coord[1] - assigned_coord[1])**2)
 
@@ -487,12 +478,12 @@ class PartitionSim(BaseAgent):
                         min_distance = distance
                         nearest_partition = partition
 
-            # 分配到最近的分区
+            # Assign to nearest partition
             labels_copy[unassigned_idx] = nearest_partition
 
-            self.log_info(f"节点{unassigned_node}分配到分区{nearest_partition}，最近距离: {min_distance:.4f}")
+            self.log_info(f"Node {unassigned_node} assigned to partition {nearest_partition}, nearest distance: {min_distance:.4f}")
 
-            # 更新分区信息，以便后续节点可以考虑这个新分配的节点
+            # Update partition information, so subsequent nodes can consider this newly assigned node
             if nearest_partition not in assigned_nodes_by_partition:
                 assigned_nodes_by_partition[nearest_partition] = []
             assigned_nodes_by_partition[nearest_partition].append((unassigned_node, unassigned_coord))
@@ -500,14 +491,14 @@ class PartitionSim(BaseAgent):
         return labels_copy
 
     def remove_outliers_iteratively(self, wn, nodes, demands, raw_labels, params):
-        """迭代处理两类离群点"""
+        """Iteratively process two types of outliers"""
         if not params['outliers_detection']:
-            self.log_info("跳过离群点检测")
+            self.log_info("Skipping outlier detection")
             return raw_labels
 
-        self.log_info("开始迭代离群点检测")
+        self.log_info("Starting iterative outlier detection")
 
-        # 创建完整的标签数组
+        # Create complete label array
         all_labels = np.zeros(len(nodes))
         for i, node in enumerate(nodes):
             if node in demands:
@@ -516,7 +507,7 @@ class PartitionSim(BaseAgent):
             else:
                 all_labels[i] = 0
 
-        # 获取节点连接关系
+        # Get node connection relationships
         node_connections = []
         for link in wn.links():
             node1 = link[1].start_node_name
@@ -528,18 +519,18 @@ class PartitionSim(BaseAgent):
         max_iterations = 10
 
         while number_iter < max_iterations:
-            # 检查是否还有标签为0的点
+            # Check if there are still nodes with label 0
             zero_count = np.sum(all_labels == 0)
             if zero_count == 0:
                 break
 
             number_iter += 1
-            self.log_info(f"离群点检测迭代 {number_iter}, 剩余未分配节点: {zero_count}")
+            self.log_info(f"Outlier detection iteration {number_iter}, remaining unassigned nodes: {zero_count}")
 
-            # 处理第一类离群点：基于邻居节点标签的一致性
+            # Process first type of outliers: based on neighbor node label consistency
             for i, node in enumerate(nodes):
-                if all_labels[i] != 99999:  # 排除特殊标记
-                    # 获取当前节点的所有连接节点
+                if all_labels[i] != 99999:  # Exclude special marks
+                    # Get all connected nodes of current node
                     connected_nodes = []
                     for conn in node_connections:
                         if conn[0] == i:
@@ -549,30 +540,30 @@ class PartitionSim(BaseAgent):
                     connected_nodes = np.array(connected_nodes)
 
                     if len(connected_nodes) > 0:
-                        # 获取邻居节点的唯一标签
+                        # Get unique labels of neighbor nodes
                         neighbor_labels = np.unique(all_labels[connected_nodes])
-                        # 计算每个标签出现的次数
+                        # Calculate occurrence count for each label
                         label_counts = np.array([np.sum(all_labels[connected_nodes] == label) for label in neighbor_labels])
-                        # 找到出现次数最多的值
+                        # Find value with highest occurrence count
                         max_count = np.max(label_counts)
-                        # 获取所有达到最大次数的标签
+                        # Get all labels with max count
                         max_labels = neighbor_labels[label_counts == max_count]
-                        # 如果0在最大次数标签中，且还有其他标签，则移除0
+                        # If 0 is in max count labels, and there are other labels, remove 0
                         if 0 in max_labels and len(max_labels) > 1:
                             max_labels = max_labels[max_labels != 0]
-                        # 选择第一个非0的标签（如果存在）
+                        # Select first non-0 label (if exists)
                         if len(max_labels) > 0:
                             all_labels[i] = max_labels[0]
                         else:
                             all_labels[i] = 0
 
-            # 处理第二类离群点：基于空间距离和连通性
+            # Process second type of outliers: based on spatial distance and connectivity
             for cluster in range(1, int(np.max(all_labels)) + 1):
                 cluster_nodes = np.where(all_labels == cluster)[0]
                 if len(cluster_nodes) <= 1:
                     continue
 
-                # 获取节点的坐标和高度
+                # Get node coordinates and elevations
                 coordinates = []
                 elevations = []
                 for node_idx in cluster_nodes:
@@ -586,16 +577,16 @@ class PartitionSim(BaseAgent):
                     coordinates.append(coord)
                     elevations.append(elev)
 
-                # 构建特征矩阵 [x, y, elevation]
+                # Build feature matrix [x, y, elevation]
                 features = np.column_stack([coordinates, elevations])
 
-                # 计算欧氏距离矩阵
+                # Calculate Euclidean distance matrix
                 dist_matrix = np.zeros((len(cluster_nodes), len(cluster_nodes)))
                 for i in range(len(cluster_nodes)):
                     for j in range(len(cluster_nodes)):
                         dist_matrix[i, j] = np.linalg.norm(features[i] - features[j])
 
-                # 计算每个节点的KNN距离
+                # Calculate KNN distance for each node
                 knn_distances = []
                 for i in range(len(cluster_nodes)):
                     distances = dist_matrix[i, :]
@@ -609,37 +600,37 @@ class PartitionSim(BaseAgent):
 
                 knn_distances = np.array(knn_distances)
 
-                # 计算统计量并标记离群点
+                # Calculate statistics and mark outliers
                 if len(knn_distances) > 0:
                     mean_dist = np.mean(knn_distances)
                     std_dist = np.std(knn_distances)
 
-                    # 标记距离离群点
+                    # Mark distance outliers
                     outliers = (knn_distances <= mean_dist - 3 * std_dist) | (knn_distances >= mean_dist + 3 * std_dist)
                     all_labels[cluster_nodes[outliers]] = 0
 
-                # 检查连通性
+                # Check connectivity
                 connect_matrix = self.check_connectivity(node_connections, cluster_nodes)
                 components = self.find_connected_components(connect_matrix)
 
                 if len(components) > 1:
-                    # 选择最大的连通分量作为主区
+                    # Select largest connected component as main region
                     main_component = max(components, key=len)
-                    # 将不在主区中的节点标记为离群点
+                    # Mark nodes not in main region as outliers
                     outliers = np.setdiff1d(np.arange(len(cluster_nodes)), main_component)
                     all_labels[cluster_nodes[outliers]] = 0
 
-        # 检查是否有分区被完全消除，如果有则恢复最大的连通分量
+        # Check if any partition is completely eliminated, if so restore largest connected component
         original_partitions = set(raw_labels)
         current_partitions = set(all_labels[all_labels > 0])
 
         lost_partitions = original_partitions - current_partitions
         if lost_partitions:
-            self.log_info(f"检测到被完全消除的分区: {sorted(lost_partitions)}")
+            self.log_info(f"Detected completely eliminated partitions: {sorted(lost_partitions)}")
 
-            # 对于每个被消除的分区，恢复其最大连通分量
+            # For each eliminated partition, restore its largest connected component
             for lost_partition in lost_partitions:
-                # 找到原本属于这个分区的节点
+                # Find nodes originally belonging to this partition
                 original_nodes = []
                 for i, node in enumerate(nodes):
                     if node in demands:
@@ -648,115 +639,115 @@ class PartitionSim(BaseAgent):
                             original_nodes.append(i)
 
                 if original_nodes:
-                    # 检查这些节点的连通性
+                    # Check connectivity of these nodes
                     if len(original_nodes) > 1:
-                        # 构建连通性矩阵
+                        # Build connectivity matrix
                         connect_matrix = self.check_connectivity(node_connections, original_nodes)
                         components = self.find_connected_components(connect_matrix)
 
                         if components:
-                            # 恢复最大的连通分量
+                            # Restore largest connected component
                             main_component = max(components, key=len)
                             for local_idx in main_component:
                                 global_idx = original_nodes[local_idx]
                                 all_labels[global_idx] = lost_partition
 
-                            self.log_info(f"恢复分区{lost_partition}的最大连通分量: {len(main_component)}个节点")
+                            self.log_info(f"Restored largest connected component of partition {lost_partition}: {len(main_component)} nodes")
                     else:
-                        # 只有一个节点，直接恢复
+                        # Only one node, restore directly
                         all_labels[original_nodes[0]] = lost_partition
-                        self.log_info(f"恢复分区{lost_partition}的单个节点")
+                        self.log_info(f"Restored single node of partition {lost_partition}")
 
-        # 更新raw_labels
+        # Update raw_labels
         for i, node in enumerate(nodes):
             if node in demands:
                 idx = demands.index(node)
                 raw_labels[idx] = all_labels[i]
 
-        # 最终验证分区数量
+        # Final verification of partition count
         final_partitions = len(set(raw_labels[raw_labels > 0]))
         expected_partitions = params['k']
 
         if final_partitions != expected_partitions:
-            self.log_info(f"⚠️ 分区数量不匹配: 期望{expected_partitions}个，实际{final_partitions}个")
+            self.log_info(f"⚠️ Partition count mismatch: expected {expected_partitions}, actual {final_partitions}")
         else:
-            self.log_info(f"✅ 分区数量验证通过: {final_partitions}个分区")
+            self.log_info(f"✅ Partition count verification passed: {final_partitions} partitions")
 
-        # 检查未分配节点数量
+        # Check unassigned node count
         unassigned_count = np.sum(raw_labels == 0)
         if unassigned_count > 0:
-            self.log_info(f"检测到{unassigned_count}个未分配节点，开始最近邻分配")
-            # 进行最近邻分配
+            self.log_info(f"Detected {unassigned_count} unassigned nodes, starting nearest neighbor assignment")
+            # Perform nearest neighbor assignment
             final_labels = self.assign_unassigned_nodes_by_nearest_neighbor(wn, nodes, demands, raw_labels, params)
 
-            # 验证最近邻分配结果
+            # Validate nearest neighbor assignment result
             final_unassigned = np.sum(final_labels == 0)
             if final_unassigned == 0:
-                self.log_info("✅ 所有节点已通过最近邻分配成功分配到分区")
+                self.log_info("✅ All nodes successfully assigned to partitions via nearest neighbor assignment")
             else:
-                self.log_info(f"⚠️ 最近邻分配后仍有{final_unassigned}个节点未分配")
+                self.log_info(f"⚠️ Still {final_unassigned} nodes unassigned after nearest neighbor assignment")
 
-            self.log_info(f"离群点检测和最近邻分配完成，迭代次数: {number_iter}")
+            self.log_info(f"Outlier detection and nearest neighbor assignment complete, iterations: {number_iter}")
             return final_labels
         else:
-            self.log_info("✅ 所有节点已分配，无需最近邻分配")
-            self.log_info(f"离群点检测完成，迭代次数: {number_iter}")
+            self.log_info("✅ All nodes assigned, no need for nearest neighbor assignment")
+            self.log_info(f"Outlier detection complete, iterations: {number_iter}")
             return raw_labels
 
     def identify_boundary_pipes(self, wn, nodes, demands, labels):
-        """识别边界管道 - 管道两端节点属于不同分区"""
+        """Identify boundary pipes - pipes with endpoints in different partitions"""
         try:
-            # 创建完整的标签数组
+            # Create complete label array
             all_labels = np.zeros(len(nodes))
             for i, node in enumerate(nodes):
                 if node in demands:
                     idx = demands.index(node)
                     all_labels[i] = labels[idx]
 
-            # 创建节点到索引的映射
+            # Create node to index mapping
             node_to_idx = {node: i for i, node in enumerate(nodes)}
 
             boundary_pipes = []
             non_boundary_pipes = []
 
-            # 遍历所有管段
+            # Traverse all links
             for link in wn.links():
                 link_obj = link[1]
                 start_node = link_obj.start_node_name
                 end_node = link_obj.end_node_name
 
-                # 获取两端节点的分区标签
+                # Get partition labels of both endpoints
                 if start_node in node_to_idx and end_node in node_to_idx:
                     start_idx = node_to_idx[start_node]
                     end_idx = node_to_idx[end_node]
                     start_label = all_labels[start_idx]
                     end_label = all_labels[end_idx]
 
-                    # 判断是否为边界管道
+                    # Determine if it's a boundary pipe
                     if start_label != end_label and start_label > 0 and end_label > 0:
                         boundary_pipes.append((start_node, end_node))
                     else:
                         non_boundary_pipes.append((start_node, end_node))
 
-            self.log_info(f"识别到{len(boundary_pipes)}条边界管道，{len(non_boundary_pipes)}条非边界管道")
+            self.log_info(f"Identified {len(boundary_pipes)} boundary pipes, {len(non_boundary_pipes)} non-boundary pipes")
             return boundary_pipes, non_boundary_pipes
 
         except Exception as e:
-            error_msg = f"识别边界管道失败: {str(e)}"
+            error_msg = f"Identify boundary pipes failed: {str(e)}"
             self.log_error(error_msg)
             return [], []
 
     def generate_partition_visualization(self, wn, nodes, demands, labels, params, save_path=None):
-        """生成分区可视化图"""
+        """Generate partition visualization"""
         try:
-            # 设置matplotlib使用英文字体，避免中文乱码
+            # Set matplotlib to use English font, avoid Chinese garbled text
             plt.rcParams['font.family'] = 'DejaVu Sans'
             plt.rcParams['axes.unicode_minus'] = False
 
-            # 创建无向图
+            # Create undirected graph
             G = wn.to_graph().to_undirected()
 
-            # 准备节点位置
+            # Prepare node positions
             pos = {}
             layout = None
             for n in G.nodes():
@@ -768,20 +759,20 @@ class PartitionSim(BaseAgent):
                     coord = layout[n]
                 pos[n] = coord
 
-            # 创建完整的标签数组
+            # Create complete label array
             all_labels = np.zeros(len(nodes))
             for i, node in enumerate(nodes):
                 if node in demands:
                     idx = demands.index(node)
                     all_labels[i] = labels[idx]
 
-            # 绘制网络分区
+            # Draw network partition
             plt.figure(figsize=(12, 10))
 
-            # 绘制边
+            # Draw edges
             nx.draw_networkx_edges(G, pos=pos, alpha=0.9, width=0.8)
 
-            # 绘制节点
+            # Draw nodes
             scatter = nx.draw_networkx_nodes(
                 G, pos=pos,
                 nodelist=nodes,
@@ -791,7 +782,7 @@ class PartitionSim(BaseAgent):
                 node_size=30
             )
 
-            # 添加图例（使用英文）
+            # Add legend (using English)
             legend_labels = ['Unassigned'] + [f'Partition {i}' for i in range(1, params['k']+1)]
             plt.legend(scatter.legend_elements()[0], legend_labels,
                       title="Node Type",
@@ -803,27 +794,27 @@ class PartitionSim(BaseAgent):
 
             if save_path:
                 plt.savefig(save_path, dpi=300, bbox_inches='tight')
-                self.log_info(f"分区图已保存到: {save_path}")
+                self.log_info(f"Partition visualization saved to: {save_path}")
 
             return save_path
 
         except Exception as e:
-            error_msg = f"生成可视化图失败: {str(e)}"
+            error_msg = f"Generate visualization failed: {str(e)}"
             self.log_error(error_msg)
             return None
 
     def generate_boundary_pipes_visualization(self, wn, nodes, demands, labels, params, save_path=None):
-        """生成边界管道可视化图 - 突出显示边界管道"""
+        """Generate boundary pipes visualization - highlight boundary pipes"""
         try:
-            # 设置matplotlib使用英文字体
+            # Set matplotlib to use English font
             plt.rcParams['font.family'] = 'DejaVu Sans'
             plt.rcParams['axes.unicode_minus'] = False
 
-            # 加载网络模型
+            # Load network model
             wn = wntr.network.WaterNetworkModel(wn.name) if hasattr(wn, 'name') else wn
             G = wn.to_graph().to_undirected()
 
-            # 准备节点位置
+            # Prepare node positions
             pos = {}
             layout = None
 
@@ -840,34 +831,34 @@ class PartitionSim(BaseAgent):
                     coord = layout.get(node, (0, 0))
                 pos[node] = coord
 
-            # 创建完整的标签数组
+            # Create complete label array
             all_labels = np.zeros(len(nodes))
             for i, node in enumerate(nodes):
                 if node in demands:
                     idx = demands.index(node)
                     all_labels[i] = labels[idx]
 
-            # 识别边界管道
+            # Identify boundary pipes
             boundary_pipes, non_boundary_pipes = self.identify_boundary_pipes(wn, nodes, demands, labels)
             boundary_count = len(boundary_pipes)
 
-            # 创建图形 - 使用与sensor_placement.py相同的风格
+            # Create figure - using same style as sensor_placement.py
             plt.figure(figsize=(15, 12))
 
-            # 绘制非边界管道（淡化但更深）
+            # Draw non-boundary pipes (faded but darker)
             nx.draw_networkx_edges(G, pos=pos, edgelist=non_boundary_pipes,
                                   alpha=0.4, width=0.5, edge_color='gray')
 
-            # 绘制边界管道（红色，加粗）
+            # Draw boundary pipes (red, bold)
             nx.draw_networkx_edges(G, pos=pos, edgelist=boundary_pipes,
                                   alpha=0.9, width=2.5, edge_color='red')
 
-            # 绘制普通节点（淡化）
+            # Draw regular nodes (faded)
             all_nodes = list(G.nodes())
             nx.draw_networkx_nodes(G, pos=pos, nodelist=all_nodes,
                                  node_color='lightblue', node_size=20, alpha=0.5)
 
-            # 绘制分区节点（按分区着色，覆盖普通节点）
+            # Draw partition nodes (colored by partition, overlay regular nodes)
             colors = ['red', 'green', 'blue', 'orange', 'purple', 'brown', 'pink', 'gray', 'cyan', 'magenta']
             for partition_id in range(1, params['k'] + 1):
                 partition_nodes = [nodes[i] for i in range(len(nodes)) if all_labels[i] == partition_id]
@@ -877,7 +868,7 @@ class PartitionSim(BaseAgent):
                                          node_color=color, node_size=30, alpha=0.7,
                                          label=f'Partition {partition_id}')
 
-            # 添加图例和标题
+            # Add legend and title
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.title(f'Water Network Boundary Pipes Analysis\n'
                      f'Total Boundary Pipes: {boundary_count}, '
@@ -888,61 +879,61 @@ class PartitionSim(BaseAgent):
             if save_path:
                 plt.savefig(save_path, dpi=300, bbox_inches='tight')
                 plt.close()
-                self.log_info(f"边界管道可视化图已保存到: {save_path}")
+                self.log_info(f"Boundary pipes visualization saved to: {save_path}")
 
             return save_path, boundary_count
 
         except Exception as e:
-            error_msg = f"生成边界管道可视化图失败: {str(e)}"
+            error_msg = f"Generate boundary pipes visualization failed: {str(e)}"
             self.log_error(error_msg)
             return None, 0
 
     def save_partition_results(self, nodes, demands, labels, params, clustering_info, conversation_id):
-        """保存分区结果到CSV文件"""
+        """Save partition results to CSV file"""
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"partition_results_{conversation_id[:8]}_{timestamp}.csv"
             filepath = os.path.join(self.downloads_folder, filename)
 
-            # 准备数据
+            # Prepare data
             results_data = []
 
-            # 添加需水节点的分区信息
+            # Add demand node partition information
             for i, node_id in enumerate(demands):
                 results_data.append({
-                    '节点ID': node_id,
-                    '节点类型': '需水节点',
-                    '分区编号': int(labels[i]),
-                    '分区名称': f'分区{int(labels[i])}' if labels[i] > 0 else '未分配'
+                    'Node ID': node_id,
+                    'Node Type': 'Demand Node',
+                    'Partition Number': int(labels[i]),
+                    'Partition Name': f'Partition{int(labels[i])}' if labels[i] > 0 else 'Unassigned'
                 })
 
-            # 添加非需水节点信息
+            # Add non-demand node information
             for node_id in nodes:
                 if node_id not in demands:
                     results_data.append({
-                        '节点ID': node_id,
-                        '节点类型': '非需水节点',
-                        '分区编号': 0,
-                        '分区名称': '非需水节点'
+                        'Node ID': node_id,
+                        'Node Type': 'Non-demand Node',
+                        'Partition Number': 0,
+                        'Partition Name': 'Non-demand Node'
                     })
 
-            # 创建DataFrame并保存
+            # Create DataFrame and save
             df = pd.DataFrame(results_data)
             df.to_csv(filepath, index=False, encoding='utf-8-sig')
 
-            # 计算统计信息
+            # Calculate statistics
             partition_stats = {}
             for i in range(1, params['k'] + 1):
                 count = np.sum(labels == i)
-                partition_stats[f'分区{i}'] = count
+                partition_stats[f'Partition{i}'] = count
 
             unassigned_count = np.sum(labels == 0)
             if unassigned_count > 0:
-                partition_stats['未分配'] = unassigned_count
+                partition_stats['Unassigned'] = unassigned_count
 
             file_size = os.path.getsize(filepath)
 
-            self.log_info(f"分区结果已保存到: {filepath}")
+            self.log_info(f"Partition results saved to: {filepath}")
 
             return {
                 'success': True,
@@ -955,7 +946,7 @@ class PartitionSim(BaseAgent):
             }
 
         except Exception as e:
-            error_msg = f"保存分区结果失败: {str(e)}"
+            error_msg = f"Save partition results failed: {str(e)}"
             self.log_error(error_msg)
             return {
                 'success': False,
@@ -963,54 +954,54 @@ class PartitionSim(BaseAgent):
             }
 
     def build_partition_prompt(self, network_info: dict, partition_result: dict, user_message: str, csv_info: dict = None):
-        """构建包含网络信息和分区结果的专业分析prompt"""
+        """Build professional analysis prompt with network info and partition results"""
         prompt = f"""
-你是一个专业的给水管网分区分析专家。现在需要分析以下管网系统的分区结果：
+You are a professional water supply network partition analysis expert. Now you need to analyze the following network system partition results:
 
-管网基本信息：
-- 节点总数：{network_info['nodes']['total']} (节点: {network_info['nodes']['junctions']}, 水库: {network_info['nodes']['reservoirs']}, 水塔: {network_info['nodes']['tanks']})
-- 管段总数：{network_info['links']['total']} (管道: {network_info['links']['pipes']}, 水泵: {network_info['links']['pumps']}, 阀门: {network_info['links']['valves']})
-- 管网总长度：{network_info['network_stats']['total_length']:.2f} 米
-- 仿真时长：{network_info['network_stats']['simulation_duration']} 秒
+Network basic information:
+- Total nodes: {network_info['nodes']['total']} (Junctions: {network_info['nodes']['junctions']}, Reservoirs: {network_info['nodes']['reservoirs']}, Tanks: {network_info['nodes']['tanks']})
+- Total links: {network_info['links']['total']} (Pipes: {network_info['links']['pipes']}, Pumps: {network_info['links']['pumps']}, Valves: {network_info['links']['valves']})
+- Total network length: {network_info['network_stats']['total_length']:.2f} meters
+- Simulation duration: {network_info['network_stats']['simulation_duration']} seconds
 
-✅ 管网分区分析已成功完成！
+✅ Network partition analysis completed successfully!
 
-分区分析结果：
+Partition analysis results:
 {partition_result['response']}
 
-分区技术参数：
-- FCM聚类算法，模糊度参数 m = {partition_result['parameters']['m']}
-- 敏感度矩阵扰动率：{partition_result['parameters']['perturb_rate']}
-- 收敛阈值：{partition_result['parameters']['error']}
-- 最大迭代次数：{partition_result['parameters']['maxiter']}
-- 离群点检测：{'已启用' if partition_result['parameters']['outliers_detection'] else '未启用'}
+Partition technical parameters:
+- FCM clustering algorithm, fuzziness parameter m = {partition_result['parameters']['m']}
+- Sensitivity matrix perturbation rate: {partition_result['parameters']['perturb_rate']}
+- Convergence threshold: {partition_result['parameters']['error']}
+- Max iteration count: {partition_result['parameters']['maxiter']}
+- Outlier detection: {'Enabled' if partition_result['parameters']['outliers_detection'] else 'Disabled'}
 
-分区质量指标：
-- 模糊分割系数 (FPC)：{partition_result['partition_info']['fpc']:.4f}
-- 聚类收敛迭代次数：{partition_result['partition_info']['iterations']}
+Partition quality metrics:
+- Fuzzy Partition Coefficient (FPC): {partition_result['partition_info']['fpc']:.4f}
+- Clustering convergence iterations: {partition_result['partition_info']['iterations']}
 """
 
         if csv_info and csv_info['success']:
             prompt += f"""
-📊 详细分区数据已保存为CSV文件：{csv_info['filename']}
-文件大小：{csv_info['file_size']} 字节，共 {csv_info['records_count']} 条记录
+📊 Detailed partition data saved as CSV file: {csv_info['filename']}
+File size: {csv_info['file_size']} bytes, total {csv_info['records_count']} records
 """
 
         prompt += f"""
-用户问题：{user_message}
+User question: {user_message}
 
-请基于管网基本信息和分区分析结果，提供专业的分析和建议，包括：
-1. 分区结果的合理性评估
-2. 分区质量的技术分析（基于FPC值和分区分布）
-3. 可能的优化建议
-4. 工程应用价值和意义
-5. 如有必要，建议进一步的分析方向
+Based on the network basic information and partition analysis results, please provide professional analysis and suggestions, including:
+1. Reasonableness evaluation of partition results
+2. Technical analysis of partition quality (based on FPC value and partition distribution)
+3. Possible optimization suggestions
+4. Engineering application value and significance
+5. If necessary, suggest further analysis directions
 
-同时告知用户可以下载详细的分区数据进行进一步分析。
+Also inform the user that they can download detailed partition data for further analysis.
 
-请在回复的最后使用以下签名格式：
+Please use the following signature format at the end of your reply:
 
-祝好，
+Best regards,
 
 Tianwei Mu
 Guangzhou Institute of Industrial Intelligence
@@ -1018,128 +1009,128 @@ Guangzhou Institute of Industrial Intelligence
         return prompt
 
     def process(self, inp_file_path: str, user_message: str, conversation_id: str):
-        """主处理函数"""
+        """Main processing function"""
         try:
-            self.log_info(f"开始处理管网分区请求: {user_message}")
+            self.log_info(f"Starting to process network partition request: {user_message}")
 
-            # Step 1: 解析管网文件，获取基本信息
+            # Step 1: Parse network file, get basic information
             network_info = self.parse_network(inp_file_path)
             if 'error' in network_info:
                 return {
                     'success': False,
-                    'response': f"管网文件解析失败: {network_info['error']}",
+                    'response': f"Network file parsing failed: {network_info['error']}",
                     'intent': 'partition_analysis',
                     'confidence': 0.0
                 }
 
-            # Step 2: 解析用户意图和参数
+            # Step 2: Parse user intent and parameters
             intent_result = self.parse_user_intent(user_message)
             params = intent_result['params']
 
-            self.log_info(f"解析参数: {params}")
+            self.log_info(f"Parsed parameters: {params}")
 
-            # Step 3: 加载网络模型
+            # Step 3: Load network model
             wn, error = self.load_network(inp_file_path)
             if error:
                 return {
                     'success': False,
-                    'response': f"加载网络文件失败: {error['error']}",
+                    'response': f"Load network file failed: {error['error']}",
                     'intent': intent_result['intent'],
                     'confidence': intent_result['confidence']
                 }
 
-            # 计算敏感度矩阵
+            # Calculate sensitivity matrix
             nodes, demands, S = self.compute_sensitivity_matrix(inp_file_path, params['perturb_rate'])
             if isinstance(S, dict) and 'error' in S:
                 return {
                     'success': False,
-                    'response': f"计算敏感度矩阵失败: {S['error']}",
+                    'response': f"Calculate sensitivity matrix failed: {S['error']}",
                     'intent': intent_result['intent'],
                     'confidence': intent_result['confidence']
                 }
 
-            # 标准化敏感度矩阵
+            # Standardize sensitivity matrix
             S_normalized = self.normalize_matrix(S)
 
-            # 执行FCM聚类
+            # Execute FCM clustering
             raw_labels, clustering_info, error = self.perform_fcm_clustering(S_normalized, params)
             if error:
                 return {
                     'success': False,
-                    'response': f"FCM聚类失败: {error['error']}",
+                    'response': f"FCM clustering failed: {error['error']}",
                     'intent': intent_result['intent'],
                     'confidence': intent_result['confidence']
                 }
 
-            # 离群点检测和处理
+            # Outlier detection and processing
             refined_labels = self.remove_outliers_iteratively(wn, nodes, demands, raw_labels, params)
 
-            # 生成可视化图
+            # Generate visualization
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             viz_filename = f"partition_viz_{conversation_id[:8]}_{timestamp}.png"
             viz_path = os.path.join(self.downloads_folder, viz_filename)
 
             viz_result = self.generate_partition_visualization(wn, nodes, demands, refined_labels, params, viz_path)
 
-            # 生成边界管道可视化图
+            # Generate boundary pipes visualization
             boundary_viz_filename = f"boundary_pipes_viz_{conversation_id[:8]}_{timestamp}.png"
             boundary_viz_path = os.path.join(self.downloads_folder, boundary_viz_filename)
             boundary_viz_result, boundary_pipe_count = self.generate_boundary_pipes_visualization(
                 wn, nodes, demands, refined_labels, params, boundary_viz_path
             )
 
-            # 获取边界管道信息用于报告
+            # Get boundary pipes information for report
             boundary_pipes, non_boundary_pipes = self.identify_boundary_pipes(wn, nodes, demands, refined_labels)
 
-            # 保存分区结果
+            # Save partition results
             save_result = self.save_partition_results(nodes, demands, refined_labels, params, clustering_info, conversation_id)
 
-            # 生成分析报告
+            # Generate analysis report
             total_nodes = len(nodes)
             demand_nodes_count = len(demands)
             partition_distribution = {}
             for i in range(1, params['k'] + 1):
-                count = int(np.sum(refined_labels == i))  # 转换为Python int
+                count = int(np.sum(refined_labels == i))  # Convert to Python int
                 partition_distribution[i] = count
 
-            unassigned_count = int(np.sum(refined_labels == 0))  # 转换为Python int
+            unassigned_count = int(np.sum(refined_labels == 0))  # Convert to Python int
 
             response_text = f"""
-管网分区分析完成！
+Network partition analysis completed!
 
-📊 **分区概况**
-- 总节点数: {total_nodes}
-- 需水节点数: {demand_nodes_count}
-- 分区数量: {params['k']}
-- 模糊度参数: {params['m']}
-- 扰动率: {params['perturb_rate']}
+📊 **Partition Overview**
+- Total nodes: {total_nodes}
+- Demand nodes: {demand_nodes_count}
+- Partition count: {params['k']}
+- Fuzziness parameter: {params['m']}
+- Perturbation rate: {params['perturb_rate']}
 
-📈 **聚类质量**
-- 模糊分割系数 (FPC): {clustering_info['fpc']:.4f}
-- 收敛迭代次数: {clustering_info['iterations']}
+📈 **Clustering Quality**
+- Fuzzy Partition Coefficient (FPC): {clustering_info['fpc']:.4f}
+- Convergence iterations: {clustering_info['iterations']}
 
-🎯 **分区分布**
+🎯 **Partition Distribution**
 """
             for i in range(1, params['k'] + 1):
                 count = partition_distribution[i]
                 percentage = (count / demand_nodes_count) * 100
-                response_text += f"- 分区{i}: {count}个节点 ({percentage:.1f}%)\n"
+                response_text += f"- Partition {i}: {count} nodes ({percentage:.1f}%)\n"
 
             if unassigned_count > 0:
                 percentage = (unassigned_count / demand_nodes_count) * 100
-                response_text += f"- 未分配: {unassigned_count}个节点 ({percentage:.1f}%)\n"
+                response_text += f"- Unassigned: {unassigned_count} nodes ({percentage:.1f}%)\n"
 
             if params['outliers_detection']:
-                response_text += f"\n✅ 已进行离群点检测和处理"
+                response_text += f"\n✅ Outlier detection and processing completed"
             else:
-                response_text += f"\n⚠️ 未进行离群点检测"
+                response_text += f"\n⚠️ Outlier detection not performed"
 
-            # 添加边界管道信息
-            response_text += f"\n\n🔴 **边界管道分析**\n"
-            response_text += f"- 边界管道总数: {boundary_pipe_count}\n"
-            response_text += f"- 边界管道占比: {(boundary_pipe_count / (boundary_pipe_count + len(non_boundary_pipes)) * 100):.1f}% (共{boundary_pipe_count + len(non_boundary_pipes)}条管道)"
+            # Add boundary pipes information
+            response_text += f"\n\n🔴 **Boundary Pipes Analysis**\n"
+            response_text += f"- Total boundary pipes: {boundary_pipe_count}\n"
+            response_text += f"- Boundary pipes ratio: {(boundary_pipe_count / (boundary_pipe_count + len(non_boundary_pipes)) * 100):.1f}% (total {boundary_pipe_count + len(non_boundary_pipes)} pipes)"
 
-            # 构建专业分析prompt
+            # Build professional analysis prompt
             prompt = self.build_partition_prompt(
                 network_info,
                 {
@@ -1150,8 +1141,8 @@ Guangzhou Institute of Industrial Intelligence
                         'k': params['k'],
                         'partition_distribution': partition_distribution,
                         'unassigned_count': unassigned_count,
-                        'fpc': float(clustering_info['fpc']),  # 转换为Python float
-                        'iterations': int(clustering_info['iterations'])  # 转换为Python int
+                        'fpc': float(clustering_info['fpc']),  # Convert to Python float
+                        'iterations': int(clustering_info['iterations'])  # Convert to Python int
                     },
                     'parameters': params
                 },
@@ -1162,7 +1153,7 @@ Guangzhou Institute of Industrial Intelligence
             result = {
                 'success': True,
                 'response': response_text,
-                'prompt': prompt,  # 添加专业prompt用于GPT分析
+                'prompt': prompt,  # Add professional prompt for GPT analysis
                 'intent': intent_result['intent'],
                 'confidence': intent_result['confidence'],
                 'partition_info': {
@@ -1171,14 +1162,14 @@ Guangzhou Institute of Industrial Intelligence
                     'k': params['k'],
                     'partition_distribution': partition_distribution,
                     'unassigned_count': unassigned_count,
-                    'fpc': float(clustering_info['fpc']),  # 转换为Python float
-                    'iterations': int(clustering_info['iterations'])  # 转换为Python int
+                    'fpc': float(clustering_info['fpc']),  # Convert to Python float
+                    'iterations': int(clustering_info['iterations'])  # Convert to Python int
                 },
                 'parameters': params,
-                'network_info': network_info  # 添加网络信息
+                'network_info': network_info  # Add network info
             }
 
-            # 添加文件下载信息
+            # Add file download info
             if save_result['success']:
                 result['csv_info'] = save_result
 
@@ -1198,7 +1189,7 @@ Guangzhou Institute of Industrial Intelligence
             return result
 
         except Exception as e:
-            error_msg = f"处理管网分区请求时出错: {str(e)}"
+            error_msg = f"Error processing network partition request: {str(e)}"
             self.log_error(error_msg)
             return {
                 'success': False,
