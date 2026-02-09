@@ -10,6 +10,13 @@ This repository contains a minimal web-based chat interface for interacting with
 ![Overall Network Architecture](paper/scheme.png)
 *Figure: The scheme of LeakDetection Agent: (a) Total work flow for training; (b) Adaptor layer; (c) LTGFM layers; (d) Inference of LeakDetection Agent*
 
+---
+### 📊 Interface Show
+![Result Show](paper/interface.png)
+*Figure: Comprehensive comparison of original, reference, and synthetically defect images of 4 industrial object categories using 2-GAO: (a) bottle, (b) cable, (c) capsule, and (d) carpet.*
+
+---
+
 ## Quick Start
 ```bash
 ./start.sh
