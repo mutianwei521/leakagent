@@ -42,7 +42,7 @@ The system orchestrates a team of specialized agents to execute complex, multi-s
 
 ### Prerequisites
 - **OS**: Windows 10/11, Linux, macOS
-- **Python**: 3.8–3.11 (Recommended: 3.10)
+- **Python**: 3.8–3.11 (Recommended: 3.11)
 - **Hardware**: NVIDIA GPU (8GB+ VRAM recommended for training), 16GB+ RAM
 
 ### Installation & Run
