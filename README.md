@@ -157,10 +157,6 @@ The authors express deep gratitude to **Dr. Enyang Gao**, General Manager of Dee
 
 Benchmarks are derived from the [OpenWaterAnalytics EPANET-Matlab-Toolkit](https://github.com/OpenWaterAnalytics/EPANET-Matlab-Toolkit).
 
-## ⚠️ Attention
-
-The core implementation of LeakAgent is open-sourced in this repository. Please note that the code for direct LLM-based inference is currently proprietary and not included in this release due to API issue.
-
 ## 📝 Citation
 
 As soon as possible
