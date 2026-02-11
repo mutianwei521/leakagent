@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeakAgent Water Network Domain Large Model</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Heroicons Script -->
+    <script src="https://unpkg.com/[email protected]/24/outline/index.js" type="module"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #171717;
+        }
+
+        /* Custom scrollbar for a more polished look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #171717;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4A4A4A;
+            border-radius: 4px;
+            border: 2px solid #171717;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #6c6c6c;
+        }
+
+        /* Style for the textarea to prevent resizing handle */
+        textarea {
+            resize: none;
+        }
+
+        /* Animation for the tools popup */
+        .tools-popup {
+            transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-indicator {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+
+        .file-indicator::before {
+            content: "📎";
+            margin-right: 5px;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .file-upload-area {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .uploaded-file {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f4fd;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .uploaded-file-name {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .uploaded-file-content {
+            font-size: 12px;
+            color: #666;
+            max-height: 100px;
+            overflow-y: auto;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-btn {
+            padding: 15px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ddd;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .error-message {
+            background: #ffe6e6;
+            color: #d63031;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border-left: 4px solid #d63031;
+        }
+
+        @media (max-width: 768px) {
+            .chat-container {
+                width: 95%;
+                height: 95vh;
+                border-radius: 10px;
+            }
+
+            .message-content {
+                max-width: 85%;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            .send-btn {
+                align-self: flex-end;
+                width: 100px;
+            }
+        }
+
+        /* Scroll to top button style */
+        .scroll-to-top {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .scroll-to-top:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+
+        .scroll-to-top.show {
+            display: flex;
+            animation: fadeInUp 0.3s ease;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="text-gray-200">
+    <!-- Top Navigation Bar -->
+    <nav class="bg-gray-800 border-b border-white/10 px-4 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-6">
+                <h1 class="text-xl font-semibold text-white">LeakAgent Water Network Domain Large Model</h1>
+                <div class="flex space-x-4">
+                    <a href="/"
+                        class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 transition-colors">
+                        💬 Smart Chat
+                    </a>
+                    <a href="/topology"
+                        class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        🗺️ Topology Map
+                    </a>
+                </div>
+            </div>
+            <div class="text-sm text-gray-400">
+                Professional Water Network Analysis & Diagnosis System
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex h-[calc(100vh-60px)]">
+        <!-- Sidebar -->
+        <aside id="sidebar"
+            class="w-64 bg-gray-900 border-r border-white/10 flex flex-col transition-transform duration-300 md:translate-x-0 -translate-x-full fixed md:relative z-40 h-full">
+            <!-- Header -->
+            <div class="p-4 border-b border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center">
+                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                            stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                        </svg>
+                    </div>
+                    <span class="font-semibold text-white">LeakAgent</span>
+                </div>
+                <button onclick="newConversation()"
+                    class="mt-3 w-full bg-white/10 hover:bg-white/20 text-white rounded-lg py-2 px-3 text-sm transition-colors">
+                    <svg class="w-4 h-4 inline mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    New Chat
+                </button>
+            </div>
+
+            <!-- Pinned Conversations -->
+            <div class="p-4 border-b border-white/10" id="pinnedSection">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Pinned Chats</h3>
+                <div class="space-y-2" id="pinnedConversationsList">
+                    <!-- Pinned conversations will be loaded dynamically via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Recent Conversations -->
+            <div class="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Recent Chats</h3>
+                <div class="space-y-2" id="conversationsList">
+                    <!-- Conversation list will be loaded dynamically via JavaScript -->
+                </div>
+            </div>
+
+            <!-- User Profile -->
+            <div class="p-4 border-t border-white/10">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white">
+                        U
+                    </div>
+                    <span class="text-white">Water</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col bg-gray-800 relative">
+            <!-- Mobile Header -->
+            <header class="md:hidden bg-gray-900 border-b border-white/10 p-4 flex items-center justify-between">
+                <button id="menu-btn" class="text-white">
+                    <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                        stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                    </svg>
+                </button>
+                <span class="text-white font-semibold">LeakAgent Assistant</span>
+                <div class="w-6"></div>
+            </header>
+
+            <!-- Chat Area -->
+            <div id="chat-container" class="flex-1 overflow-y-auto custom-scrollbar">
+                <div class="max-w-4xl mx-auto">
+                    <!-- Welcome Message -->
+                    <div id="welcome-message" class="flex items-center justify-center min-h-full p-8">
+                        <div class="text-center">
+                            <div
+                                class="w-16 h-16 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                                </svg>
+                            </div>
+                            <h2 class="text-2xl font-semibold text-white mb-4">Hello! I am LeakAgent</h2>
+                            <p class="text-gray-400 max-w-md mx-auto">
+                                I have powerful analysis and reasoning capabilities to help you solve complex problems,
+                                analyze file content, and provide professional advice. How can I help you today?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Section -->
+            <div class="w-full bg-gradient-to-t from-gray-800 to-transparent p-4">
+                <div class="max-w-4xl mx-auto">
+                    <!-- File Upload Area -->
+                    <div id="file-upload-area"
+                        class="mb-4 p-4 border-2 border-dashed border-gray-600 rounded-xl text-center cursor-pointer hover:border-gray-500 transition-colors"
+                        onclick="document.getElementById('fileInput').click()">
+                        <input type="file" id="fileInput" class="hidden"
+                            accept=".txt,.pdf,.doc,.docx,.md,.py,.js,.html,.css,.json,.xml,.csv,.inp">
+                        <div class="text-gray-400">
+                            <svg class="w-8 h-8 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                            </svg>
+                            <p class="text-sm">Click to select file or drag and drop here</p>
+                            <p class="text-xs text-gray-500 mt-1">Supports: inp, txt, pdf, doc, md, py, js, html, css,
+                                json, xml, csv</p>
+                        </div>
+                    </div>
+
+                    <!-- Uploaded File Display -->
+                    <div id="uploadedFile" class="mb-4 p-3 bg-gray-700 rounded-lg hidden">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                </svg>
+                                <span id="fileName" class="text-white text-sm"></span>
+                            </div>
+                            <button onclick="removeFile()" class="text-gray-400 hover:text-white">
+                                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div id="fileContent"
+                            class="mt-2 text-xs text-gray-400 max-h-20 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+
+                    <!-- Tools Popup -->
+                    <div id="tools-popup"
+                        class="absolute bottom-20 left-4 right-4 max-w-4xl mx-auto opacity-0 scale-95 pointer-events-none tools-popup">
+                        <div class="bg-gray-700 rounded-xl shadow-lg border border-white/10 p-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <button
+                                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left">
+                                    <div class="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">Generate Image</div>
+                                        <div class="text-gray-400 text-sm">Generate image using DALL-E</div>
+                                    </div>
+                                </button>
+                                <button
+                                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left">
+                                    <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">Deep Research</div>
+                                        <div class="text-gray-400 text-sm">Search web and documents</div>
+                                    </div>
+                                </button>
+                                <button
+                                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left">
+                                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">Write Code</div>
+                                        <div class="text-gray-400 text-sm">Expand and edit in code editor</div>
+                                    </div>
+                                </button>
+
+                                <button onclick="window.open('/file_manager', '_blank')"
+                                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left">
+                                    <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25H11.69l-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v6.75Z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">File Manager</div>
+                                        <div class="text-gray-400 text-sm">Manage downloaded files and images</div>
+                                    </div>
+                                </button>
+                                <button onclick="document.getElementById('fileInput').click()"
+                                    class="flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors text-left">
+                                    <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-white font-medium">Upload File</div>
+                                        <div class="text-gray-400 text-sm">Attach documents, images, or data</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Form -->
+                    <form id="chat-form" class="relative">
+                        <div class="flex items-end gap-2">
+                            <button type="button" id="tools-btn"
+                                class="flex-shrink-0 w-10 h-10 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center justify-center transition-colors">
+                                <svg class="w-5 h-5 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                    viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m6-6H6" />
+                                </svg>
+                            </button>
+                            <div class="flex-1 relative">
+                                <textarea id="chat-input" rows="1"
+                                    class="w-full bg-gray-700 border border-white/10 rounded-xl shadow-lg py-3.5 pl-4 pr-14 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 custom-scrollbar"
+                                    placeholder="Send a message to LeakAgent..."></textarea>
+                                <button type="submit"
+                                    class="absolute right-2 bottom-2 w-8 h-8 bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center justify-center transition-colors">
+                                    <svg class="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                            d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <p class="text-center text-xs text-gray-500 mt-3">LeakAgent can make mistakes. Check important info.
+                    </p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Overlay for mobile -->
+    <div id="overlay" class="fixed inset-0 bg-black/50 z-30 md:hidden hidden"></div>
+
+    <!-- 置顶按钮 -->
+    <button id="scrollToTop" class="scroll-to-top" title="Back to Top">
+        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+            stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+        </svg>
+    </button>
+
+    <script>
+        // --- DOM Elements ---
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatContainer = document.getElementById('chat-container').querySelector('.max-w-4xl');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        const toolsBtn = document.getElementById('tools-btn');
+        const toolsPopup = document.getElementById('tools-popup');
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('file-upload-area');
+        const conversationsList = document.getElementById('conversationsList');
+        const pinnedConversationsList = document.getElementById('pinnedConversationsList');
+        const pinnedSection = document.getElementById('pinnedSection');
+        const scrollToTopBtn = document.getElementById('scrollToTop');
+
+        let currentFileContent = '';
+        let currentFileName = '';
+        let currentConversationId = null;
+
+        // --- Event Listeners ---
+        chatForm.addEventListener('submit', handleSendMessage);
+        chatInput.addEventListener('input', autoResizeTextarea);
+        chatInput.addEventListener('keydown', handleKeydown);
+        if (menuBtn) menuBtn.addEventListener('click', toggleSidebar);
+        if (overlay) overlay.addEventListener('click', toggleSidebar);
+        toolsBtn.addEventListener('click', toggleToolsPopup);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop upload
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-blue-500');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('border-blue-500');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-blue-500');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // Close popup if clicking outside
+        document.addEventListener('click', (e) => {
+            if (!toolsPopup.contains(e.target) && !toolsBtn.contains(e.target)) {
+                hideToolsPopup();
+            }
+        });
+
+        // --- Functions ---
+        function toggleToolsPopup() {
+            const isHidden = toolsPopup.classList.contains('opacity-0');
+            if (isHidden) {
+                toolsPopup.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            } else {
+                hideToolsPopup();
+            }
+        }
+
+        function hideToolsPopup() {
+            toolsPopup.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+        }
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentFileContent = data.full_content;
+                        currentFileName = data.filename;
+
+                        document.getElementById('fileName').textContent = file.name;
+                        document.getElementById('fileContent').textContent = data.content;
+                        document.getElementById('uploadedFile').classList.remove('hidden');
+                        hideToolsPopup();
+                    } else {
+                        showError(data.error);
+                    }
+                })
+                .catch(error => {
+                    showError('File upload failed: ' + error.message);
+                });
+        }
+
+        function removeFile() {
+            currentFileContent = '';
+            currentFileName = '';
+            document.getElementById('uploadedFile').classList.add('hidden');
+            document.getElementById('fileInput').value = '';
+        }
+
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                chatForm.requestSubmit();
+            }
+        }
+
+        function handleSendMessage(e) {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message && !currentFileContent) return;
+
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+
+            // Show user message
+            if (message) {
+                appendMessage(message, 'user', !!currentFileContent);
+            }
+
+            // Show "Please wait" message
+            const waitingMessageId = 'waiting-' + Date.now();
+            appendMessage('🤖 Processing your request, please wait...', 'bot', false, null, null, waitingMessageId);
+
+            chatInput.value = '';
+            autoResizeTextarea();
+            chatInput.style.height = 'auto';
+
+            // Send request
+            fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    file_content: currentFileContent,
+                    conversation_id: currentConversationId
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // 移除等待消息
+                    const waitingElement = document.getElementById(waitingMessageId);
+                    if (waitingElement) {
+                        waitingElement.remove();
+                    }
+
+                    if (data.success) {
+                        // Handle new downloads array format
+                        let allDownloads = [];
+
+                        if (data.downloads && Array.isArray(data.downloads)) {
+                            // 收集所有下载文件
+                            allDownloads = data.downloads.map(item => ({
+                                type: item.type,
+                                step: item.step || '',
+                                filename: item.filename,
+                                url: item.url,
+                                display_url: item.display_url || item.url,
+                                download_url: item.url,
+                                size: item.size,
+                                records_count: item.records_count || 'N/A'
+                            }));
+                        }
+
+                        // Compatible with legacy format
+                        if (allDownloads.length === 0) {
+                            if (data.download) {
+                                allDownloads.push({
+                                    type: 'csv',
+                                    step: '',
+                                    filename: data.download.filename,
+                                    url: data.download.url,
+                                    display_url: data.download.url,
+                                    download_url: data.download.url,
+                                    size: data.download.size,
+                                    records_count: data.download.records_count || 'N/A'
+                                });
+                            }
+                            if (data.visualization) {
+                                allDownloads.push({
+                                    type: 'image',
+                                    step: '',
+                                    filename: data.visualization.filename,
+                                    url: data.visualization.url,
+                                    display_url: data.visualization.url,
+                                    download_url: data.visualization.url,
+                                    size: data.visualization.size || 0,
+                                    records_count: 'N/A'
+                                });
+                            }
+                        }
+
+                        appendMessage(data.response, 'bot', false, null, null, null, allDownloads);
+
+                        // Update current conversation ID
+                        if (data.conversation_id) {
+                            currentConversationId = data.conversation_id;
+                        }
+
+                        // Show debug info if intent recognized
+                        if (data.intent && data.confidence !== undefined) {
+                            console.log(`Intent recognition: ${data.intent} (Confidence: ${data.confidence.toFixed(3)})`);
+                        }
+
+                        // 刷新对话列表
+                        loadConversations();
+                        // 清除文件内容（一次性使用）
+                        removeFile();
+                    } else {
+                        showError(data.error);
+                    }
+                })
+                .catch(error => {
+                    // 移除等待消息
+                    const waitingElement = document.getElementById(waitingMessageId);
+                    if (waitingElement) {
+                        waitingElement.remove();
+                    }
+                    showError('Failed to send message: ' + error.message);
+                });
+        }
+
+        function appendMessage(text, sender, hasFile = false, downloadInfo = null, visualizationInfo = null, messageId = null, allDownloads = []) {
+            const isUser = sender === 'user';
+
+            // 调试信息
+            if (!isUser) {
+                console.log('🎯 appendMessage调试:', {
+                    sender,
+                    hasDownloadInfo: !!downloadInfo,
+                    hasVisualizationInfo: !!visualizationInfo,
+                    allDownloadsCount: allDownloads.length,
+                    downloadInfo,
+                    visualizationInfo,
+                    allDownloads
+                });
+            }
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `w-full ${isUser ? '' : 'bg-black/20'}`;
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'max-w-4xl mx-auto p-4 md:p-6 flex items-start gap-5';
+
+            const avatarDiv = document.createElement('div');
+            avatarDiv.className = 'w-8 h-8 flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white';
+
+            if (isUser) {
+                avatarDiv.classList.add('bg-blue-600');
+                avatarDiv.textContent = 'U';
+            } else {
+                avatarDiv.classList.add('bg-teal-600');
+                avatarDiv.innerHTML = `<svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>`;
+            }
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'flex-1';
+
+            if (hasFile && isUser) {
+                const fileIndicator = document.createElement('div');
+                fileIndicator.className = 'text-xs text-blue-400 mb-2 flex items-center gap-1';
+                fileIndicator.innerHTML = `
+                    <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                    Contains File
+                `;
+                contentDiv.appendChild(fileIndicator);
+            }
+
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text-gray-200 leading-relaxed';
+
+            // If AI reply, use Markdown rendering; if user message, keep as is
+            if (!isUser && typeof marked !== 'undefined') {
+                // 配置marked选项
+                marked.setOptions({
+                    breaks: true,
+                    gfm: true
+                });
+                textDiv.innerHTML = marked.parse(text);
+
+                // Add styles for rendered elements
+                textDiv.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+                    heading.className = 'font-bold text-white mb-2 mt-4';
+                    if (heading.tagName === 'H1') heading.className += ' text-xl';
+                    else if (heading.tagName === 'H2') heading.className += ' text-lg';
+                    else if (heading.tagName === 'H3') heading.className += ' text-base';
+                });
+
+                textDiv.querySelectorAll('ul, ol').forEach(list => {
+                    list.className = 'ml-4 mb-2';
+                });
+
+                textDiv.querySelectorAll('li').forEach(item => {
+                    item.className = 'mb-1';
+                });
+
+                textDiv.querySelectorAll('strong').forEach(strong => {
+                    strong.className = 'font-semibold text-white';
+                });
+
+                textDiv.querySelectorAll('p').forEach(p => {
+                    p.className = 'mb-2';
+                });
+
+                textDiv.querySelectorAll('code').forEach(code => {
+                    code.className = 'bg-gray-700 px-1 py-0.5 rounded text-sm font-mono';
+                });
+
+                textDiv.querySelectorAll('pre').forEach(pre => {
+                    pre.className = 'bg-gray-800 p-3 rounded-lg overflow-x-auto mb-2';
+                });
+            } else {
+                // 用户消息保持原样，使用textContent
+                textDiv.className += ' whitespace-pre-wrap';
+                textDiv.textContent = text;
+            }
+
+            contentDiv.appendChild(textDiv);
+
+            // 处理所有下载文件
+            if (allDownloads.length > 0 && !isUser) {
+                allDownloads.forEach(download => {
+                    if (download.type === 'csv') {
+                        // 添加CSV下载区域
+                        const downloadSection = document.createElement('div');
+                        downloadSection.className = 'mt-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg';
+
+                        // Determine title and icon based on step
+                        let title = "Analysis Result File";
+                        let icon = "📊";
+                        if (download.step === "Sensor Placement") {
+                            title = "Sensor Placement Result File";
+                            icon = "📍";
+                        } else if (download.step === "Network Partition") {
+                            title = "Partition Analysis Result File";
+                            icon = "🗺️";
+                        } else if (download.step === "Leakage Model Training") {
+                            if (download.filename.includes('training_data')) {
+                                title = "训练数据文件";
+                                icon = "📊";
+                            } else if (download.filename.includes('evaluation')) {
+                                title = "模型评估报告";
+                                icon = "📈";
+                            } else {
+                                title = "漏损检测数据文件";
+                                icon = "🔍";
+                            }
+                        }
+
+                        downloadSection.innerHTML = `
+                            <div class="flex items-center gap-4">
+                                <div class="text-2xl">${icon}</div>
+                                <div class="flex-1">
+                                    <h4 class="text-green-400 font-semibold mb-1">${title}</h4>
+                                    <p class="text-gray-300 text-sm font-mono">${download.filename}</p>
+                                    <small class="text-gray-400">File Size: ${formatFileSize(download.size)} | Records: ${download.records_count || 'N/A'}</small>
+                                </div>
+                                <button onclick="downloadFile('${download.url}', '${download.filename}')"
+                                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
+                                    Download CSV
+                                </button>
+                            </div>
+                        `;
+                        contentDiv.appendChild(downloadSection);
+                    } else if (download.type === 'model') {
+                        // 添加模型文件下载区域
+                        const modelSection = document.createElement('div');
+                        modelSection.className = 'mt-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg';
+
+                        modelSection.innerHTML = `
+                            <div class="flex items-center gap-4">
+                                <div class="text-2xl">🤖</div>
+                                <div class="flex-1">
+                                    <h4 class="text-purple-400 font-semibold mb-1">Leakage Detection Model File</h4>
+                                    <p class="text-gray-300 text-sm font-mono">${download.filename}</p>
+                                    <small class="text-gray-400">File Size: ${formatFileSize(download.size)} | Format: PyTorch PTH</small>
+                                </div>
+                                <button onclick="downloadFile('${download.url}', '${download.filename}')"
+                                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
+                                    Download Model
+                                </button>
+                            </div>
+                        `;
+                        contentDiv.appendChild(modelSection);
+                    } else if (download.type === 'image') {
+                        // 添加图像显示区域
+                        const visualizationSection = document.createElement('div');
+                        visualizationSection.className = 'mt-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg';
+
+                        // Determine image type based on filename and step
+                        const filename = download.filename;
+                        let imageTitle = "Visualization Chart";
+                        let imageIcon = "🖼️";
+                        let altText = "Visualization Chart";
+
+                        if (filename.includes('sensor_placement_viz') || download.step === "Sensor Placement") {
+                            imageTitle = "Monitoring Point Visualization";
+                            imageIcon = "📍";
+                            altText = "Monitoring Point Visualization";
+                        } else if (filename.includes('partition_viz') || download.step === "Network Partition") {
+                            imageTitle = "Partition Visualization";
+                            imageIcon = "🗺️";
+                            altText = "Partition Visualization";
+                        }
+
+                        visualizationSection.innerHTML = `
+                            <div class="flex items-center gap-4 mb-3">
+                                <div class="text-2xl">${imageIcon}</div>
+                                <div class="flex-1">
+                                    <h4 class="text-blue-400 font-semibold mb-1">${imageTitle}</h4>
+                                    <p class="text-gray-300 text-sm font-mono">${download.filename}</p>
+                                </div>
+                                <button onclick="downloadFile('${download.download_url}', '${download.filename}')"
+                                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                                    <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                                    </svg>
+                                    Download Image
+                                </button>
+                            </div>
+                            <div class="bg-white rounded-lg p-2">
+                                <img src="${download.display_url}" alt="${altText}" class="w-full h-auto rounded cursor-pointer"
+                                     style="max-height: 600px; object-fit: contain;"
+                                     onclick="window.open('${download.display_url}', '_blank')"
+                                     title="Click to view large image">
+                            </div>
+                        `;
+                        contentDiv.appendChild(visualizationSection);
+                    }
+                });
+            }
+
+            // Compatible with legacy format download info display
+            if (downloadInfo && downloadInfo.available && !isUser && allDownloads.length === 0) {
+                const downloadSection = document.createElement('div');
+                downloadSection.className = 'mt-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg';
+                downloadSection.innerHTML = `
+                    <div class="flex items-center gap-4">
+                        <div class="text-2xl">📊</div>
+                        <div class="flex-1">
+                            <h4 class="text-green-400 font-semibold mb-1">Analysis Result File</h4>
+                            <p class="text-gray-300 text-sm font-mono">${downloadInfo.filename}</p>
+                            <small class="text-gray-400">File Size: ${formatFileSize(downloadInfo.size)} | Records: ${downloadInfo.records_count || 'N/A'}</small>
+                        </div>
+                        <button onclick="downloadFile('${downloadInfo.url}', '${downloadInfo.filename}')"
+                                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            下载CSV
+                        </button>
+                    </div>
+                `;
+                contentDiv.appendChild(downloadSection);
+            }
+
+            // Compatible with legacy format visualization info display
+            if (visualizationInfo && visualizationInfo.available && !isUser && allDownloads.length === 0) {
+                const visualizationSection = document.createElement('div');
+                visualizationSection.className = 'mt-4 p-4 bg-gray-800/50 border border-gray-600 rounded-lg';
+
+                const downloadUrl = visualizationInfo.download_url || visualizationInfo.url;
+                const displayUrl = visualizationInfo.url;
+
+                const filename = visualizationInfo.filename;
+                let imageTitle = "Visualization Chart";
+                let imageIcon = "🖼️";
+                let altText = "Visualization Chart";
+
+                if (filename.includes('sensor_placement_viz')) {
+                    imageTitle = "Monitoring Point Visualization";
+                    imageIcon = "📍";
+                    altText = "Monitoring Point Visualization";
+                } else if (filename.includes('partition_viz')) {
+                    imageTitle = "Partition Visualization";
+                    imageIcon = "🗺️";
+                    altText = "Partition Visualization";
+                }
+
+                visualizationSection.innerHTML = `
+                    <div class="flex items-center gap-4 mb-3">
+                        <div class="text-2xl">${imageIcon}</div>
+                        <div class="flex-1">
+                            <h4 class="text-blue-400 font-semibold mb-1">${imageTitle}</h4>
+                            <p class="text-gray-300 text-sm font-mono">${visualizationInfo.filename}</p>
+                        </div>
+                        <button onclick="downloadFile('${downloadUrl}', '${visualizationInfo.filename}')"
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            下载图片
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-lg p-2">
+                        <img src="${displayUrl}" alt="${altText}" class="w-full h-auto rounded cursor-pointer"
+                             style="max-height: 600px; object-fit: contain;"
+                             onclick="window.open('${displayUrl}', '_blank')"
+                             title="点击查看大图">
+                    </div>
+                `;
+                contentDiv.appendChild(visualizationSection);
+            }
+
+            messageDiv.appendChild(avatarDiv);
+            messageDiv.appendChild(contentDiv);
+            messageWrapper.appendChild(messageDiv);
+
+            // 如果提供了messageId，设置ID
+            if (messageId) {
+                messageWrapper.id = messageId;
+            }
+
+            chatContainer.appendChild(messageWrapper);
+
+            chatContainer.parentElement.scrollTop = chatContainer.parentElement.scrollHeight;
+        }
+
+        function autoResizeTextarea() {
+            chatInput.style.height = 'auto';
+            const maxHeight = 200;
+            const newHeight = Math.min(chatInput.scrollHeight, maxHeight);
+            chatInput.style.height = newHeight + 'px';
+        }
+
+        function showError(message) {
+            const errorWrapper = document.createElement('div');
+            errorWrapper.className = 'w-full';
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'max-w-4xl mx-auto p-4 md:p-6';
+
+            const errorContent = document.createElement('div');
+            errorContent.className = 'bg-red-900/50 border border-red-500 rounded-lg p-3 text-red-200';
+            errorContent.textContent = message;
+
+            errorDiv.appendChild(errorContent);
+            errorWrapper.appendChild(errorDiv);
+            chatContainer.appendChild(errorWrapper);
+            chatContainer.parentElement.scrollTop = chatContainer.parentElement.scrollHeight;
+        }
+
+        function newConversation() {
+            if (confirm('Are you sure you want to start a new conversation? Current conversation will be saved.')) {
+                fetch('/new_conversation', {
+                    method: 'POST'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            currentConversationId = null;
+                            chatContainer.innerHTML = '';
+                            if (welcomeMessage) {
+                                welcomeMessage.style.display = 'flex';
+                            }
+                            loadConversations();
+                            console.log('已开始新对话');
+                        }
+                    });
+            }
+        }
+
+        function loadConversations() {
+            return fetch('/get_conversations')
+                .then(response => response.json())
+                .then(data => {
+                    // 不自动设置当前对话ID，保持用户手动选择
+                    // 注释掉自动选择逻辑
+                    // if (data.current_conversation_id && !currentConversationId) {
+                    //     currentConversationId = data.current_conversation_id;
+                    // }
+
+                    // 加载置顶对话
+                    loadPinnedConversations(data.pinned_conversations || []);
+
+                    // 加载普通对话
+                    loadRegularConversations(data.regular_conversations || []);
+
+                    return data;
+                });
+        }
+
+        function loadPinnedConversations(pinnedConversations) {
+            pinnedConversationsList.innerHTML = '';
+
+            if (pinnedConversations.length > 0) {
+                pinnedSection.style.display = 'block';
+                pinnedConversations.forEach(conversation => {
+                    const conversationDiv = createConversationElement(conversation, true);
+                    pinnedConversationsList.appendChild(conversationDiv);
+                });
+            } else {
+                pinnedSection.style.display = 'none';
+            }
+        }
+
+        function loadRegularConversations(regularConversations) {
+            conversationsList.innerHTML = '';
+
+            if (regularConversations.length > 0) {
+                regularConversations.forEach(conversation => {
+                    const conversationDiv = createConversationElement(conversation, false);
+                    conversationsList.appendChild(conversationDiv);
+                });
+            } else {
+                conversationsList.innerHTML = '<div class="text-gray-400 text-sm text-center py-4">No conversation history</div>';
+            }
+        }
+
+        function createConversationElement(conversation, isPinned) {
+            const conversationDiv = document.createElement('div');
+            conversationDiv.className = `group relative p-2 rounded-lg hover:bg-white/10 cursor-pointer transition-colors ${conversation.id === currentConversationId ? 'bg-white/10' : ''}`;
+
+            const pinIcon = isPinned ?
+                `<svg class="w-3 h-3 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16 12V4a1 1 0 00-1-1H9a1 1 0 00-1 1v8H6a1 1 0 000 2h1v6a1 1 0 001 1h8a1 1 0 001-1v-6h1a1 1 0 000-2h-2z"/>
+                </svg>` : '';
+
+            conversationDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0" onclick="loadConversation('${conversation.id}')">
+                        <div class="flex items-center gap-2">
+                            ${pinIcon}
+                            <div class="text-sm text-white truncate">${conversation.title}</div>
+                        </div>
+                        <div class="text-xs text-gray-400">${formatDate(conversation.updated_at)}</div>
+                    </div>
+                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onclick="togglePin('${conversation.id}', ${isPinned})" class="p-1 text-gray-400 hover:text-yellow-400 transition-colors" title="${isPinned ? 'Unpin' : 'Pin Conversation'}">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                            </svg>
+                        </button>
+                        <button onclick="deleteConversation('${conversation.id}')" class="p-1 text-gray-400 hover:text-red-400 transition-colors" title="Delete Conversation">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return conversationDiv;
+        }
+
+        function loadConversation(conversationId) {
+            fetch(`/load_conversation/${conversationId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentConversationId = conversationId;
+                        chatContainer.innerHTML = '';
+                        if (welcomeMessage) {
+                            welcomeMessage.style.display = 'none';
+                        }
+
+                        // 加载对话消息
+                        data.conversation.messages.forEach((msg, index) => {
+                            appendMessage(msg.user, 'user', msg.has_file);
+
+                            // Process download info for assistant messages
+                            let allDownloads = [];
+
+                            console.log(`🔍 调试消息 ${index + 1}:`, {
+                                hasDownloads: !!msg.downloads,
+                                downloadsType: typeof msg.downloads,
+                                downloadsLength: msg.downloads ? msg.downloads.length : 0,
+                                downloads: msg.downloads
+                            });
+
+                            if (msg.downloads && Array.isArray(msg.downloads)) {
+                                console.log(`📥 Processing download info, total ${msg.downloads.length} files`);
+
+                                // 收集所有下载文件
+                                allDownloads = msg.downloads.map(item => ({
+                                    type: item.type,
+                                    step: item.step || '',
+                                    filename: item.filename,
+                                    url: item.url,
+                                    display_url: item.display_url || item.url,
+                                    download_url: item.url,
+                                    size: item.size,
+                                    records_count: item.records_count || 'N/A'
+                                }));
+
+                                console.log('✅ 收集到所有下载文件:', allDownloads);
+                            }
+
+                            console.log(`📝 调用appendMessage，allDownloads:`, allDownloads);
+                            appendMessage(msg.assistant, 'bot', false, null, null, null, allDownloads);
+                        });
+
+                        // 更新对话列表显示（高亮当前对话）
+                        loadConversations();
+
+                        console.log(`已切换到对话: ${data.conversation.title}`);
+                    }
+                });
+        }
+
+        function deleteConversation(conversationId) {
+            event.stopPropagation(); // 防止触发对话加载
+            if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
+                fetch(`/delete_conversation/${conversationId}`, {
+                    method: 'DELETE'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // If current conversation is deleted, clear interface
+                            if (conversationId === currentConversationId) {
+                                currentConversationId = null;
+                                chatContainer.innerHTML = '';
+                                if (welcomeMessage) {
+                                    welcomeMessage.style.display = 'flex';
+                                }
+                            }
+                            loadConversations();
+                        }
+                    });
+            }
+        }
+
+        function togglePin(conversationId, isPinned) {
+            event.stopPropagation(); // 防止触发对话加载
+
+            const endpoint = isPinned ? `/unpin_conversation/${conversationId}` : `/pin_conversation/${conversationId}`;
+            const action = isPinned ? 'Unpin' : 'Pin';
+
+            fetch(endpoint, {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 刷新对话列表
+                        loadConversations();
+
+                        // 显示操作反馈
+                        showToast(`${action} successful`);
+                    } else {
+                        showToast(`${action} failed: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast(`${action}失败: ${error.message}`, 'error');
+                });
+        }
+
+        function showToast(message, type = 'success') {
+            // 创建toast提示
+            const toast = document.createElement('div');
+            toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white text-sm z-50 transition-all duration-300 ${type === 'error' ? 'bg-red-600' : 'bg-green-600'
+                }`;
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            // 3秒后自动移除
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        function downloadFile(url, filename) {
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+
+            // 添加到页面并触发下载
+            document.body.appendChild(link);
+            link.click();
+
+            // 清理
+            document.body.removeChild(link);
+
+            // 显示下载提示
+            showToast(`Starting download: ${filename}`, 'success');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+                return 'Today';
+            } else if (diffDays === 2) {
+                return 'Yesterday';
+            } else if (diffDays <= 7) {
+                return `${diffDays - 1} days ago`;
+            } else {
+                return date.toLocaleDateString('en-US');
+            }
+        }
+
+        // 置顶按钮功能
+        function initScrollToTop() {
+            const chatScrollContainer = document.getElementById('chat-container');
+
+            // Listen for scroll events in chat container
+            chatScrollContainer.addEventListener('scroll', () => {
+                // 当滚动距离超过300px时显示按钮
+                if (chatScrollContainer.scrollTop > 300) {
+                    scrollToTopBtn.classList.add('show');
+                } else {
+                    scrollToTopBtn.classList.remove('show');
+                }
+            });
+
+            // 点击按钮滚动到顶部
+            scrollToTopBtn.addEventListener('click', () => {
+                chatScrollContainer.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            // 初始化置顶按钮
+            initScrollToTop();
+
+            // 只加载对话列表，不自动进入任何对话
+            loadConversations()
+                .then(() => {
+                    // 清空当前对话状态
+                    currentConversationId = null;
+                    chatContainer.innerHTML = '';
+
+                    // 始终显示欢迎消息
+                    if (welcomeMessage) {
+                        welcomeMessage.style.display = 'flex';
+                    }
+
+                    console.log('页面初始化完成，显示欢迎界面');
+                })
+                .catch(error => {
+                    console.error('初始化失败:', error);
+                    // 即使出错也显示欢迎界面
+                    if (welcomeMessage) {
+                        welcomeMessage.style.display = 'flex';
+                    }
+                });
+        });
+    </script>
+</body>
+
+</html>

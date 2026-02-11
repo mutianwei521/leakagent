@@ -1,0 +1,3 @@
+@echo off
+echo Starting LeakAgent...
+python app.py

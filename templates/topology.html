@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Topology - LeakAgent</title>
+    <title>Network Topology Map - LeakAgent</title>
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -79,15 +79,15 @@
             max-width: 300px;
         }
 
-        .file-item {
+        .network-item {
             transition: all 0.2s ease;
         }
 
-        .file-item:hover {
+        .network-item:hover {
             background-color: #374151;
         }
 
-        .file-item.selected {
+        .network-item.selected {
             background-color: #1d4ed8;
         }
 
@@ -116,15 +116,15 @@
     <nav class="bg-gray-800 border-b border-white/10 px-4 py-3">
         <div class="flex items-center justify-between">
             <div class="flex items-center space-x-6">
-                <h1 class="text-xl font-semibold text-white">LeakAgent Water Supply Network Domain LLM</h1>
+                <h1 class="text-xl font-semibold text-white">LeakAgent Vertical Water Model</h1>
                 <div class="flex space-x-4">
                     <a href="/"
                         class="px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        💬 Chat
+                        💬 Smart Chat
                     </a>
                     <a href="/topology"
                         class="px-3 py-2 rounded-md text-sm font-medium text-white bg-gray-700 hover:bg-gray-600 transition-colors">
-                        🗺️Topology
+                        🗺️ Topology Map
                     </a>
                 </div>
             </div>
@@ -137,38 +137,24 @@
     <div class="flex h-[calc(100vh-60px)]">
         <!-- Left Sidebar -->
         <aside class="w-80 bg-gray-900 border-r border-white/10 flex flex-col">
-            <!-- File Selection -->
+            <!-- Network Selection from RAG Storage -->
             <div class="p-4 border-b border-white/10">
-                <h2 class="text-lg font-semibold mb-4">📁 File Selection</h2>
+                <h2 class="text-lg font-semibold mb-4">📁 Cached Networks</h2>
 
-                <!-- INP Files -->
-                <div class="mb-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">Network Files (.inp)</h3>
-                    <div id="inp-files-list" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                        <div class="text-center text-gray-500 py-4">
-                            <div
-                                class="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2">
-                            </div>
-                            Loading...
+                <div id="network-list" class="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+                    <div class="text-center text-gray-500 py-4">
+                        <div
+                            class="animate-spin w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2">
                         </div>
-                    </div>
-                </div>
-
-                <!-- CSV Files -->
-                <div class="mb-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">Data Files (.csv)</h3>
-                    <div id="csv-files-list" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
-                        <div class="text-center text-gray-500 py-4">
-                            Please select network file first
-                        </div>
+                        Loading...
                     </div>
                 </div>
 
                 <!-- Load Button -->
                 <button id="load-topology-btn"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled>
-                    🗺️ Load Topology
+                    🗺️ Load Topology Map
                 </button>
             </div>
 
@@ -176,11 +162,19 @@
             <div class="p-4 border-b border-white/10">
                 <h3 class="text-sm font-medium text-gray-400 mb-2">📊 Network Info</h3>
                 <div id="network-info" class="text-sm text-gray-300 space-y-1">
-                    <div>Please select network file</div>
+                    <div>Please select a network</div>
                 </div>
             </div>
 
-
+            <!-- Color Mode Toggle -->
+            <div class="p-4">
+                <h3 class="text-sm font-medium text-gray-400 mb-2">🎨 Color Mode</h3>
+                <div class="flex items-center space-x-2">
+                    <input type="checkbox" id="show-hydraulics"
+                        class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500">
+                    <label for="show-hydraulics" class="text-sm text-gray-300">Show Avg Hydraulic Data</label>
+                </div>
+            </div>
         </aside>
 
         <!-- Main Content -->
@@ -189,9 +183,9 @@
             <div class="bg-gray-800 border-b border-white/10 px-4 py-3">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center space-x-4">
-                        <h2 class="text-lg font-semibold">Network Topology</h2>
+                        <h2 class="text-lg font-semibold">Network Topology Map</h2>
                         <div id="current-file-info" class="text-sm text-gray-400">
-                            No file selected
+                            No network selected
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
@@ -216,23 +210,15 @@
 
                 <!-- Control Panel -->
                 <div class="flex items-center justify-between space-x-6">
-                    <!-- Time Control -->
-                    <div id="time-controls" class="flex items-center space-x-3" style="display: none;">
-                        <span class="text-sm text-gray-400">Time:</span>
-                        <input type="range" id="time-slider" min="0" max="24" step="1" value="0"
-                            class="w-32 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                        <span id="time-display" class="text-sm text-white min-w-[60px]">0.0 Hours</span>
-                    </div>
-
                     <!-- Size Control -->
                     <div class="flex items-center space-x-4">
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-400">Node:</span>
+                            <span class="text-sm text-gray-400">Nodes:</span>
                             <input type="range" id="node-size-slider" min="0.0" max="3" step="0.1" value="1"
                                 class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
                         </div>
                         <div class="flex items-center space-x-2">
-                            <span class="text-sm text-gray-400">Link:</span>
+                            <span class="text-sm text-gray-400">Links:</span>
                             <input type="range" id="link-size-slider" min="0.0" max="3" step="0.1" value="1"
                                 class="w-20 h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
                         </div>
@@ -261,8 +247,8 @@
                     <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center">
                         <div class="text-center">
                             <div class="text-6xl mb-4">🗺️</div>
-                            <div class="text-xl text-gray-400">Select network file to start visualization</div>
-                            <div class="text-sm text-gray-500 mt-2">Supports EPANET .inp format files</div>
+                            <div class="text-xl text-gray-400">Select a cached network to start visualization</div>
+                            <div class="text-sm text-gray-500 mt-2">Networks are loaded from rag_storage cache</div>
                         </div>
                     </div>
                     <!-- Floating Legend -->
@@ -275,7 +261,7 @@
                                 class="text-gray-400 hover:text-white text-lg leading-none">&times;</button>
                         </div>
                         <div class="space-y-3 text-xs">
-                            <!-- Node Type -->
+                            <!-- Node Types -->
                             <div class="space-y-1">
                                 <div class="text-xs text-gray-400 font-medium">Node Type</div>
                                 <div class="flex items-center space-x-2">
@@ -309,9 +295,9 @@
                                 </div>
                             </div>
 
-                            <!-- Data Color Legend -->
+                            <!-- Hydraulic Data Legend (shown when hydraulics toggled on) -->
                             <div id="data-legend" class="space-y-1" style="display: none;">
-                                <div class="text-xs text-gray-400 font-medium">Data Color</div>
+                                <div class="text-xs text-gray-400 font-medium">Avg Hydraulic Data</div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2.5 h-2.5 rounded-full bg-blue-400"></div>
                                     <span class="text-gray-300">Low Pressure</span>
@@ -322,11 +308,11 @@
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-0.5 bg-green-400"></div>
-                                    <span class="text-gray-300">Positive Flow</span>
+                                    <span class="text-gray-300">Pos Flow</span>
                                 </div>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-5 h-0.5 bg-red-400"></div>
-                                    <span class="text-gray-300">Negative Flow</span>
+                                    <span class="text-gray-300">Neg Flow</span>
                                 </div>
                             </div>
                         </div>
@@ -343,14 +329,11 @@
 
     <script>
         // Global variables
-        let currentInpFile = null;
-        let currentCsvFile = null;
+        let selectedNetwork = null;
         let networkData = null;
-        let csvData = null;
         let svg = null;
         let g = null;
         let zoom = null;
-        let currentTimeStep = 0;
         let nodeElements = null;
         let linkElements = null;
         let nodeLabels = null;
@@ -359,264 +342,102 @@
         let linkSizeScale = 1;
         let showNodeIds = false;
         let showLinkIds = false;
+        let showHydraulics = false;
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', function () {
-            loadInpFiles();
-            loadCsvFiles();
+            loadRagNetworks();
             initializeVisualization();
         });
 
-        // Load INP files
-        async function loadInpFiles() {
+        // Load cached RAG networks
+        async function loadRagNetworks() {
             try {
-                const response = await fetch('/api/inp_files');
+                const response = await fetch('/api/rag_networks');
                 const data = await response.json();
 
-                const container = document.getElementById('inp-files-list');
+                const container = document.getElementById('network-list');
 
-                if (data.success && data.files.length > 0) {
+                if (data.success && data.networks.length > 0) {
                     container.innerHTML = '';
-                    data.files.forEach(file => {
-                        const fileItem = createFileItem(file, 'inp');
-                        container.appendChild(fileItem);
+                    data.networks.forEach(net => {
+                        const item = createNetworkItem(net);
+                        container.appendChild(item);
                     });
                 } else {
-                    container.innerHTML = '<div class="text-center text-gray-500 py-4">No network files</div>';
+                    container.innerHTML = '<div class="text-center text-gray-500 py-4">No cached networks found.<br><span class="text-xs">Upload an INP file via Smart Chat to create cache.</span></div>';
                 }
             } catch (error) {
-                console.error('Failed to load INP files:', error);
-                document.getElementById('inp-files-list').innerHTML = '<div class="text-center text-red-500 py-4">Load failed</div>';
+                console.error('Failed to load RAG networks:', error);
+                document.getElementById('network-list').innerHTML = '<div class="text-center text-red-500 py-4">Loading failed</div>';
             }
         }
 
-        // Load CSV files
-        async function loadCsvFiles() {
-            try {
-                const response = await fetch('/api/csv_files');
-                const data = await response.json();
-
-                const container = document.getElementById('csv-files-list');
-
-                if (data.success && data.files.length > 0) {
-                    container.innerHTML = '';
-                    data.files.forEach(file => {
-                        const fileItem = createFileItem(file, 'csv');
-                        container.appendChild(fileItem);
-                    });
-                } else {
-                    container.innerHTML = '<div class="text-center text-gray-500 py-4">No data files</div>';
-                }
-            } catch (error) {
-                console.error('Failed to load CSV files:', error);
-                document.getElementById('csv-files-list').innerHTML = '<div class="text-center text-red-500 py-4">Load failed</div>';
-            }
-        }
-
-        // Create file item element
-        function createFileItem(file, type) {
+        // Create network list item element
+        function createNetworkItem(net) {
             const div = document.createElement('div');
-            div.className = 'file-item p-3 rounded-lg border border-gray-700 cursor-pointer';
-            div.dataset.filePath = file.path;
-            div.dataset.fileType = type;
+            div.className = 'network-item p-3 rounded-lg border border-gray-700 cursor-pointer';
+            div.dataset.md5 = net.md5;
 
-            const icon = type === 'inp' ? '📄' : '📊';
-            const size = (file.size / 1024).toFixed(1) + ' KB';
-            const date = new Date(file.modified).toLocaleDateString('en-US');
-
-            // Add file source indicator
-            let sourceIcon = '';
-            let sourceText = '';
-            if (type === 'inp' && file.source) {
-                if (file.source === 'uploaded') {
-                    sourceIcon = '📤';
-                    sourceText = 'Uploaded';
-                } else if (file.source === 'example') {
-                    sourceIcon = '📋';
-                    sourceText = 'Example';
-                }
-            }
+            const size = (net.size / 1024).toFixed(1) + ' KB';
+            const date = new Date(net.modified * 1000).toLocaleDateString('en-US');
+            const nodeCount = net.stats.node_count || '?';
+            const linkCount = net.stats.link_count || '?';
 
             div.innerHTML = `
                 <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center space-x-2">
-                            <span class="text-lg">${icon}</span>
-                            <span class="text-sm font-medium truncate">${file.filename}</span>
-                            ${sourceIcon ? `<span class="text-xs px-1.5 py-0.5 bg-gray-600 rounded text-gray-300">${sourceIcon} ${sourceText}</span>` : ''}
+                            <span class="text-lg">📄</span>
+                            <span class="text-sm font-medium truncate">${net.filename}</span>
                         </div>
                         <div class="text-xs text-gray-400 mt-1">
-                            ${size} • ${date}
+                            ${nodeCount} nodes • ${linkCount} links • ${size}
+                        </div>
+                        <div class="text-xs text-gray-500 mt-0.5">
+                            ${date}
                         </div>
                     </div>
                 </div>
             `;
 
-            // Add click and double click event handlers
-            let clickTimeout;
-            div.addEventListener('click', (e) => {
-                clearTimeout(clickTimeout);
-                clickTimeout = setTimeout(() => {
-                    selectFile(file, type, div);
-                }, 250); // 250ms delay to distinguish single and double click
-            });
-
-            div.addEventListener('dblclick', (e) => {
-                clearTimeout(clickTimeout);
-                deselectFile(type, div);
+            div.addEventListener('click', () => {
+                // Deselect others
+                document.querySelectorAll('#network-list .network-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                div.classList.add('selected');
+                selectedNetwork = net;
+                updateNetworkInfo(net);
+                document.getElementById('load-topology-btn').disabled = false;
             });
 
             return div;
         }
 
-        // Select file
-        function selectFile(file, type, element) {
-            if (type === 'inp') {
-                // Clear previous selection
-                document.querySelectorAll('#inp-files-list .file-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                element.classList.add('selected');
-                currentInpFile = file;
-
-                // Update network info
-                updateNetworkInfo();
-
-                // Enable load button if both files selected
-                updateLoadButton();
-            } else if (type === 'csv') {
-                // Clear previous selection
-                document.querySelectorAll('#csv-files-list .file-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                element.classList.add('selected');
-                currentCsvFile = file;
-
-                // Enable load button if both files selected
-                updateLoadButton();
-            }
-        }
-
-        // Deselect file (double click to unselect)
-        function deselectFile(type, element) {
-            if (type === 'inp') {
-                element.classList.remove('selected');
-                currentInpFile = null;
-                networkData = null; // Clear network data cache
-
-                // Clear network info
-                document.getElementById('network-info').innerHTML = '<div>Please select network file</div>';
-
-                // Clear topology if loaded
-                if (document.getElementById('topology-svg')) {
-                    document.getElementById('topology-container').innerHTML = `
-                        <div id="loading-indicator" class="absolute inset-0 flex items-center justify-center">
-                            <div class="text-center">
-                                <div class="text-6xl mb-4">🗺️</div>
-                                <div class="text-xl text-gray-400">Select network file to start visualization</div>
-                                <div class="text-sm text-gray-500 mt-2">Supports EPANET .inp format files</div>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                // Update load button
-                updateLoadButton();
-            } else if (type === 'csv') {
-                element.classList.remove('selected');
-                currentCsvFile = null;
-                csvData = null;
-
-                // Hide time controls
-                document.getElementById('time-controls').style.display = 'none';
-
-                // Hide data legend
-                document.getElementById('data-legend').style.display = 'none';
-
-                // Reset visualization to show only topology colors
-                if (nodeElements && linkElements) {
-                    resetVisualizationColors();
-                }
-
-                // Update load button
-                updateLoadButton();
-            }
-        }
-
-        // Ensure network data is loaded
-        async function ensureNetworkDataLoaded() {
-            if (!currentInpFile) {
-                throw new Error('No INP file selected');
-            }
-
-            if (networkData) {
-                console.log('Network data already exists, skipping load');
-                return networkData;
-            }
-
-            console.log('Loading network data...');
-            const response = await fetch(`/api/network_topology/${encodeURIComponent(currentInpFile.path)}`);
-            const data = await response.json();
-
-            if (data.success) {
-                networkData = data.topology;
-                console.log('Network data loaded successfully:', {
-                    nodes: networkData.nodes.total,
-                    links: networkData.links.total
-                });
-
-                // Also update network info display
-                updateNetworkInfoDisplay();
-
-                return networkData;
-            } else {
-                throw new Error(data.error || 'Failed to load network data');
-            }
-        }
-
-        // Update network info display
-        function updateNetworkInfoDisplay() {
-            if (!networkData) return;
-
+        // Update network info sidebar
+        function updateNetworkInfo(net) {
             const infoContainer = document.getElementById('network-info');
+            const s = net.stats;
+            const h = net.hydraulics;
             infoContainer.innerHTML = `
-                <div>Total Nodes: ${networkData.nodes.total}</div>
-                <div>• Junctions: ${networkData.nodes.junctions}</div>
-                <div>• Reservoirs: ${networkData.nodes.reservoirs}</div>
-                <div>• Tanks: ${networkData.nodes.tanks}</div>
-                <div class="mt-2">Total Links: ${networkData.links.total}</div>
-                <div>• Pipes: ${networkData.links.pipes}</div>
-                <div>• Pumps: ${networkData.links.pumps}</div>
-                <div>• Valves: ${networkData.links.valves}</div>
-                <div class="mt-2">Total Length: ${networkData.network_stats && networkData.network_stats.total_length ? networkData.network_stats.total_length.toFixed(2) : 'N/A'} m</div>
+                <div>File: ${net.filename}</div>
+                <div class="mt-1">Total Nodes: ${s.node_count || 0}</div>
+                <div>• Junctions: ${s.junction_count || 0}</div>
+                <div>• Reservoirs: ${s.reservoir_count || 0}</div>
+                <div>• Tanks: ${s.tank_count || 0}</div>
+                <div class="mt-1">Total Links: ${s.link_count || 0}</div>
+                <div>• Pipes: ${s.pipe_count || 0}</div>
+                <div>• Pumps: ${s.pump_count || 0}</div>
+                <div>• Valves: ${s.valve_count || 0}</div>
+                ${h ? `
+                <div class="mt-2 border-t border-gray-700 pt-2">
+                    <div class="text-gray-400 text-xs font-medium">Hydraulic Summary</div>
+                    <div>Avg Pressure: ${h.avg_pressure?.toFixed(2) || 'N/A'} m</div>
+                    <div>Min Pressure: ${h.min_pressure?.toFixed(2) || 'N/A'} m</div>
+                    <div>Max Pressure: ${h.max_pressure?.toFixed(2) || 'N/A'} m</div>
+                </div>` : ''}
             `;
-        }
-
-        // Update network info (legacy function for file selection)
-        async function updateNetworkInfo() {
-            if (!currentInpFile) return;
-
-            const infoContainer = document.getElementById('network-info');
-            infoContainer.innerHTML = '<div class="animate-pulse">Loading network info...</div>';
-
-            try {
-                await ensureNetworkDataLoaded();
-            } catch (error) {
-                console.error('Failed to get network info:', error);
-                infoContainer.innerHTML = '<div class="text-red-400">Load failed</div>';
-            }
-        }
-
-        // Update load button state
-        function updateLoadButton() {
-            const loadBtn = document.getElementById('load-topology-btn');
-            loadBtn.disabled = !currentInpFile;
-
-            if (currentInpFile) {
-                loadBtn.textContent = currentCsvFile ? '🗺️ Load Topology (with data)' : '🗺️ Load Topology';
-            } else {
-                loadBtn.textContent = '🗺️ Load Topology';
-            }
         }
 
         // Initialize visualization
@@ -649,16 +470,6 @@
             // Load topology button
             document.getElementById('load-topology-btn').addEventListener('click', loadTopology);
 
-            // Time slider
-            document.getElementById('time-slider').addEventListener('input', (e) => {
-                currentTimeStep = parseFloat(e.target.value);
-                document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} Hours`;
-                updateVisualizationData();
-                // Ensure size settings are not overwritten
-                updateNodeSizes();
-                updateLinkSizes();
-            });
-
             // Size sliders
             document.getElementById('node-size-slider').addEventListener('input', (e) => {
                 nodeSizeScale = parseFloat(e.target.value);
@@ -681,14 +492,17 @@
                 updateLinkLabelsVisibility();
             });
 
+            // Hydraulic coloring toggle
+            document.getElementById('show-hydraulics').addEventListener('change', (e) => {
+                showHydraulics = e.target.checked;
+                document.getElementById('data-legend').style.display = showHydraulics ? 'block' : 'none';
+                applyColors();
+            });
+
             // Legend controls
             document.getElementById('legend-toggle').addEventListener('click', () => {
                 const legendPanel = document.getElementById('legend-panel');
-                if (legendPanel.style.display === 'none') {
-                    legendPanel.style.display = 'block';
-                } else {
-                    legendPanel.style.display = 'none';
-                }
+                legendPanel.style.display = legendPanel.style.display === 'none' ? 'block' : 'none';
             });
 
             document.getElementById('legend-close').addEventListener('click', () => {
@@ -696,9 +510,9 @@
             });
         }
 
-        // Load topology
+        // Load topology from RAG
         async function loadTopology() {
-            if (!currentInpFile) return;
+            if (!selectedNetwork) return;
 
             const loadingIndicator = document.getElementById('loading-indicator');
             const networkSvg = document.getElementById('network-svg');
@@ -706,112 +520,55 @@
             loadingIndicator.innerHTML = `
                 <div class="text-center">
                     <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                    <div class="text-xl text-gray-400">Loading network data...</div>
+                    <div class="text-xl text-gray-400">Loading from cache...</div>
                 </div>
             `;
 
             try {
-                // Ensure network data is loaded
-                if (!networkData) {
-                    console.log('Network data not loaded, fetching...');
-                    await ensureNetworkDataLoaded();
+                const response = await fetch(`/api/topology/from_rag/${selectedNetwork.md5}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to load topology');
                 }
 
-                // Update loading status
-                loadingIndicator.innerHTML = `
-                    <div class="text-center">
-                        <div class="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                        <div class="text-xl text-gray-400">Generating topology...</div>
-                    </div>
-                `;
+                networkData = {
+                    nodes: data.stats.nodes,
+                    links: data.stats.links,
+                    topology: {
+                        nodes: data.nodes,
+                        links: data.links
+                    },
+                    hydraulics: data.hydraulics,
+                    filename: data.filename
+                };
 
-                // Load CSV data if selected
-                if (currentCsvFile) {
-                    await loadCsvData();
-                }
+                // Show SVG BEFORE generating topology (so getBoundingClientRect works)
+                loadingIndicator.style.display = 'none';
+                networkSvg.style.display = 'block';
 
                 // Generate topology visualization
                 await generateTopology();
 
-                // Update visualization with current data
-                updateVisualizationData();
+                // Apply initial colors
+                applyColors();
 
                 // Apply initial size settings
                 updateNodeSizes();
                 updateLinkSizes();
 
-                // Hide loading, show SVG
-                loadingIndicator.style.display = 'none';
-                networkSvg.style.display = 'block';
-
                 // Update current file info
-                document.getElementById('current-file-info').textContent =
-                    `${currentInpFile.filename}${currentCsvFile ? ' + ' + currentCsvFile.filename : ''}`;
+                document.getElementById('current-file-info').textContent = data.filename;
 
             } catch (error) {
                 console.error('Failed to load topology:', error);
                 loadingIndicator.innerHTML = `
                     <div class="text-center">
                         <div class="text-6xl mb-4 text-red-500">❌</div>
-                        <div class="text-xl text-red-400">Load failed</div>
+                        <div class="text-xl text-red-400">Loading Failed</div>
                         <div class="text-sm text-gray-500 mt-2">${error.message}</div>
                     </div>
                 `;
-            }
-        }
-
-        // Load CSV data
-        async function loadCsvData() {
-            if (!currentCsvFile) {
-                csvData = null;
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/csv_data/${encodeURIComponent(currentCsvFile.path)}`);
-                const data = await response.json();
-
-                if (data.success) {
-                    csvData = data.csv_data;
-
-                    // Set time slider range
-                    const timeSlider = document.getElementById('time-slider');
-                    const timeSteps = csvData.time_steps || Object.keys(csvData.data_by_time || {}).map(t => parseFloat(t)).sort((a, b) => a - b);
-                    if (timeSteps && timeSteps.length > 0) {
-                        timeSlider.min = timeSteps[0];
-                        timeSlider.max = timeSteps[timeSteps.length - 1];
-                        timeSlider.value = timeSteps[0];
-                        currentTimeStep = timeSteps[0];
-
-                        // Set step to minimum interval between time steps
-                        if (timeSteps.length > 1) {
-                            const minStep = Math.min(...timeSteps.slice(1).map((t, i) => t - timeSteps[i]));
-                            timeSlider.step = minStep;
-                        }
-
-                        document.getElementById('time-display').textContent = `${currentTimeStep.toFixed(1)} Hours`;
-                    }
-
-                    // Show time controls
-                    document.getElementById('time-controls').style.display = 'flex';
-
-                    // Show data legend
-                    document.getElementById('data-legend').style.display = 'block';
-
-                    // Automatically show legend panel
-                    document.getElementById('legend-panel').style.display = 'block';
-
-                    // Update visualization data immediately
-                    updateVisualizationData();
-
-                    console.log('CSV data loaded successfully:', csvData.summary);
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (error) {
-                console.error('Failed to load CSV data:', error);
-                csvData = null;
-                document.getElementById('time-controls').style.display = 'none';
             }
         }
 
@@ -828,7 +585,7 @@
             const links = networkData.topology.links;
 
             if (nodes.length === 0) {
-                throw new Error('Network has no node data');
+                throw new Error('No node data in network');
             }
 
             // Calculate coordinate range
@@ -840,7 +597,6 @@
             let yMin = Math.min(...yCoords);
             let yMax = Math.max(...yCoords);
 
-            // If no valid coordinates, use default range
             if (!isFinite(xMin) || !isFinite(xMax) || !isFinite(yMin) || !isFinite(yMax)) {
                 xMin = 0; xMax = 1000; yMin = 0; yMax = 1000;
             }
@@ -855,23 +611,22 @@
             const svgWidth = svgRect.width;
             const svgHeight = svgRect.height;
 
-            // Calculate scale
+            // Calculate scale ratio
             const scaleX = svgWidth / (xMax - xMin);
             const scaleY = svgHeight / (yMax - yMin);
-            const scale = Math.min(scaleX, scaleY) * 0.9; // Leave some margin
+            const scale = Math.min(scaleX, scaleY) * 0.9;
 
             // Prepare data
             const nodeData = nodes.map(node => {
                 let x = node.coordinates[0];
                 let y = node.coordinates[1];
 
-                // If no coordinates, assign randomly
                 if (x === undefined || x === null || y === undefined || y === null) {
                     x = xMin + Math.random() * (xMax - xMin);
                     y = yMin + Math.random() * (yMax - yMin);
                 }
 
-                // Transform coordinates (Flip Y axis as SVG Y axis is down)
+                // Coordinate system transformation (Y-axis flip)
                 const transformedX = (x - xMin) * scale;
                 const transformedY = svgHeight - (y - yMin) * scale;
 
@@ -884,7 +639,9 @@
                     originalY: y,
                     elevation: node.elevation || 0,
                     base_demand: node.base_demand || 0,
-                    head: node.head || 0,
+                    pressure_avg: node.pressure_avg,
+                    head_avg: node.head_avg,
+                    demand_avg: node.demand_avg,
                     ...node
                 };
             });
@@ -896,6 +653,9 @@
                 type: link.type,
                 length: link.length || 0,
                 diameter: link.diameter || 0,
+                roughness: link.roughness || 0,
+                flowrate_avg: link.flowrate_avg,
+                velocity_avg: link.velocity_avg,
                 ...link
             }));
 
@@ -960,7 +720,7 @@
                 .attr('y', d => d.y + 4)
                 .attr('font-size', '10px')
                 .attr('fill', '#9ca3af')
-                .style('display', 'none') // Hidden by default
+                .style('display', 'none')
                 .text(d => d.id);
 
             // Add link labels
@@ -982,10 +742,10 @@
                 .attr('font-size', '9px')
                 .attr('fill', '#6b7280')
                 .attr('text-anchor', 'middle')
-                .style('display', 'none') // Hidden by default
+                .style('display', 'none')
                 .text(d => d.id);
 
-            // Auto zoom to fit view
+            // Auto-zoom to fit view
             const bounds = g.node().getBBox();
             const fullWidth = svgWidth;
             const fullHeight = svgHeight;
@@ -994,14 +754,64 @@
             const midX = bounds.x + width / 2;
             const midY = bounds.y + height / 2;
 
-            if (width == 0 || height == 0) return; // Return if no content
+            if (width == 0 || height == 0) return;
 
-            // Calculate scale to fit view
             const scaleToFit = 0.9 / Math.max(width / fullWidth, height / fullHeight);
             const translate = [fullWidth / 2 - scaleToFit * midX, fullHeight / 2 - scaleToFit * midY];
 
-            // Apply initial transform
             svg.call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scaleToFit));
+        }
+
+        // Apply colors (topology default or hydraulic)
+        function applyColors() {
+            if (!nodeElements || !linkElements) return;
+
+            if (showHydraulics) {
+                // Color nodes by average pressure
+                nodeElements.style('fill', d => {
+                    if (d.pressure_avg !== undefined && d.pressure_avg !== null) {
+                        const normalizedPressure = Math.min(1, Math.max(0, d.pressure_avg / 80));
+                        const hue = (1 - normalizedPressure) * 240; // 240=Blue, 0=Red
+                        return `hsl(${hue}, 70%, 50%)`;
+                    }
+                    // Fallback to type colors
+                    if (d.type === 'reservoir') return '#10b981';
+                    if (d.type === 'tank') return '#f59e0b';
+                    return '#3b82f6';
+                });
+
+                // Color links by average flowrate
+                linkElements.style('stroke', d => {
+                    if (d.flowrate_avg !== undefined && d.flowrate_avg !== null) {
+                        const absFlow = Math.abs(d.flowrate_avg);
+                        const normalizedFlow = Math.min(1, absFlow / 0.05);
+                        const intensity = Math.floor(normalizedFlow * 200 + 55);
+                        return d.flowrate_avg >= 0 ? `rgb(0, ${intensity}, 0)` : `rgb(${intensity}, 0, 0)`;
+                    }
+                    if (d.type === 'pump') return '#ef4444';
+                    if (d.type === 'valve') return '#8b5cf6';
+                    return '#6b7280';
+                });
+            } else {
+                // Default topology colors
+                nodeElements.style('fill', d => {
+                    switch (d.type) {
+                        case 'reservoir': return '#10b981';
+                        case 'tank': return '#f59e0b';
+                        case 'junction': return '#3b82f6';
+                        default: return '#6b7280';
+                    }
+                });
+
+                linkElements.style('stroke', d => {
+                    switch (d.type) {
+                        case 'pump': return '#ef4444';
+                        case 'valve': return '#8b5cf6';
+                        case 'pipe': return '#6b7280';
+                        default: return '#6b7280';
+                    }
+                });
+            }
         }
 
         // Reset view to center and fit
@@ -1009,7 +819,6 @@
             if (!g || !svg) return;
 
             try {
-                // Get content bounds
                 const bounds = g.node().getBBox();
                 const svgRect = svg.node().getBoundingClientRect();
                 const fullWidth = svgRect.width;
@@ -1020,20 +829,16 @@
                 const midY = bounds.y + height / 2;
 
                 if (width == 0 || height == 0) {
-                    // If no content, just center
                     svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
                     return;
                 }
 
-                // Calculate scale to fit view
                 const scaleToFit = 0.9 / Math.max(width / fullWidth, height / fullHeight);
                 const translate = [fullWidth / 2 - scaleToFit * midX, fullHeight / 2 - scaleToFit * midY];
 
-                // Apply transform with animation
                 svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scaleToFit));
             } catch (error) {
-                console.warn('Reset view failed, using simple reset:', error);
-                // Fallback to simple reset on error
+                console.warn('Reset view failed:', error);
                 svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
             }
         }
@@ -1042,42 +847,24 @@
         function showNodeTooltip(event, d) {
             const tooltip = document.getElementById('tooltip');
 
-            // Get dynamic data for current time step
-            let dynamicData = '';
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (csvData && dataSource && currentTimeStep !== null) {
-                const timeData = getTimeData(currentTimeStep);
-                if (timeData) {
-                    // Try to get node dynamic data
-                    const pressure = getNodeValue(d.id, timeData.node_pressure);
-                    const demand = getNodeValue(d.id, timeData.node_demand);
-
-                    if (pressure !== undefined || demand !== undefined) {
-                        // Calculate total head = pressure + elevation
-                        const totalHead = (pressure !== undefined && d.elevation !== undefined)
-                            ? pressure + d.elevation
-                            : undefined;
-
-                        dynamicData = `
-                            <div class="border-t border-gray-600 mt-2 pt-2">
-                                <div class="text-yellow-300 font-medium">Time ${currentTimeStep.toFixed(1)} Hours:</div>
-                                ${pressure !== undefined ? `<div>Pressure: ${pressure.toFixed(2)} m</div>` : ''}
-                                ${totalHead !== undefined ? `<div>Total Head: ${totalHead.toFixed(2)} m</div>` : ''}
-                                ${demand !== undefined ? `<div>Actual Demand: ${demand.toFixed(3)} L/s</div>` : ''}
-                            </div>
-                        `;
-                    }
-                }
+            let hydraulicInfo = '';
+            if (d.pressure_avg !== undefined && d.pressure_avg !== null) {
+                hydraulicInfo = `
+                    <div class="border-t border-gray-600 mt-2 pt-2">
+                        <div class="text-yellow-300 font-medium">Avg Hydraulics:</div>
+                        <div>Pressure: ${d.pressure_avg.toFixed(2)} m</div>
+                        ${d.head_avg !== undefined ? `<div>Total Head: ${d.head_avg.toFixed(2)} m</div>` : ''}
+                        ${d.demand_avg !== undefined ? `<div>Demand: ${d.demand_avg.toFixed(6)} L/s</div>` : ''}
+                    </div>
+                `;
             }
 
             tooltip.innerHTML = `
                 <div class="font-semibold">${d.type.toUpperCase()}: ${d.id}</div>
                 <div class="text-xs mt-1">
                     <div>Elevation: ${d.elevation?.toFixed(2) || 'N/A'} m</div>
-                    ${d.base_demand !== undefined ? `<div>Base Demand: ${d.base_demand.toFixed(3)} L/s</div>` : ''}
-                    ${d.head !== undefined ? `<div>Total Head: ${d.head.toFixed(2)} m</div>` : ''}
-                    ${d.init_level !== undefined ? `<div>Initial Level: ${d.init_level.toFixed(2)} m</div>` : ''}
-                    ${dynamicData}
+                    ${d.base_demand !== undefined ? `<div>Base Demand: ${d.base_demand.toFixed(6)} L/s</div>` : ''}
+                    ${hydraulicInfo}
                 </div>
             `;
             tooltip.style.display = 'block';
@@ -1089,37 +876,26 @@
         function showLinkTooltip(event, d) {
             const tooltip = document.getElementById('tooltip');
 
-            // Get dynamic data for current time step
-            let dynamicData = '';
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (csvData && dataSource && currentTimeStep !== null) {
-                const timeData = getTimeData(currentTimeStep);
-                if (timeData) {
-                    // Try to get link dynamic data
-                    const flow = getLinkValue(d.id, timeData.link_flow);
-                    const velocity = getLinkValue(d.id, timeData.link_velocity);
-
-                    if (flow !== undefined || velocity !== undefined) {
-                        dynamicData = `
-                            <div class="border-t border-gray-600 mt-2 pt-2">
-                                <div class="text-yellow-300 font-medium">Time ${currentTimeStep.toFixed(1)} Hours:</div>
-                                ${flow !== undefined ? `<div>Flow: ${flow.toFixed(4)} L/s</div>` : ''}
-                                ${velocity !== undefined ? `<div>Velocity: ${velocity.toFixed(3)} m/s</div>` : ''}
-                            </div>
-                        `;
-                    }
-                }
+            let hydraulicInfo = '';
+            if (d.flowrate_avg !== undefined && d.flowrate_avg !== null) {
+                hydraulicInfo = `
+                    <div class="border-t border-gray-600 mt-2 pt-2">
+                        <div class="text-yellow-300 font-medium">Avg Hydraulics:</div>
+                        <div>Flowrate: ${d.flowrate_avg.toFixed(6)} m³/s</div>
+                        ${d.velocity_avg !== undefined ? `<div>Velocity: ${d.velocity_avg.toFixed(4)} m/s</div>` : ''}
+                    </div>
+                `;
             }
 
             tooltip.innerHTML = `
                 <div class="font-semibold">${d.type.toUpperCase()}: ${d.id}</div>
                 <div class="text-xs mt-1">
-                    <div>Start Node: ${d.source.id || d.source}</div>
-                    <div>End Node: ${d.target.id || d.target}</div>
+                    <div>Start Node: ${d.source}</div>
+                    <div>End Node: ${d.target}</div>
                     ${d.length !== undefined ? `<div>Length: ${d.length.toFixed(2)} m</div>` : ''}
-                    ${d.diameter !== undefined ? `<div>Diameter: ${d.diameter.toFixed(0)} mm</div>` : ''}
+                    ${d.diameter !== undefined ? `<div>Diameter: ${(d.diameter * 1000).toFixed(0)} mm</div>` : ''}
                     ${d.roughness !== undefined ? `<div>Roughness: ${d.roughness}</div>` : ''}
-                    ${dynamicData}
+                    ${hydraulicInfo}
                 </div>
             `;
             tooltip.style.display = 'block';
@@ -1132,109 +908,15 @@
             document.getElementById('tooltip').style.display = 'none';
         }
 
-        // Helper function to get time data with multiple format attempts
-        function getTimeData(timeStep) {
-            // Check data structure
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (!dataSource) return null;
-
-            // Try matching multiple time step formats
-            let timeData = dataSource[timeStep.toString()];
-            if (!timeData) {
-                timeData = dataSource[Math.floor(timeStep).toString()];
-            }
-            if (!timeData) {
-                timeData = dataSource[timeStep.toFixed(1)];
-            }
-            return timeData;
-        }
-
-        // Helper function to get node value with ID matching
-        function getNodeValue(nodeId, dataObject) {
-            if (!dataObject) return undefined;
-
-            // Try matching multiple ID formats
-            let value = dataObject[nodeId];
-            if (value === undefined) {
-                value = dataObject[nodeId + '.0'];
-            }
-            if (value === undefined) {
-                const idWithoutSuffix = nodeId.replace('.0', '');
-                value = dataObject[idWithoutSuffix];
-            }
-            return value;
-        }
-
-        // Helper function to get link value with ID matching
-        function getLinkValue(linkId, dataObject) {
-            if (!dataObject) return undefined;
-
-            // Try matching multiple ID formats
-            let value = dataObject[linkId];
-            if (value === undefined) {
-                value = dataObject[linkId + '.0'];
-            }
-            if (value === undefined) {
-                const idWithoutSuffix = linkId.replace('.0', '');
-                value = dataObject[idWithoutSuffix];
-            }
-            return value;
-        }
-
-        // Reset visualization colors to default topology colors
-        function resetVisualizationColors() {
-            if (!nodeElements || !linkElements) return;
-
-            // Reset node colors to default type colors
-            nodeElements.style('fill', d => {
-                switch (d.type) {
-                    case 'reservoir': return '#10b981'; // green
-                    case 'tank': return '#f59e0b';      // yellow
-                    case 'junction': return '#3b82f6';  // blue
-                    default: return '#6b7280';          // gray
-                }
-            });
-
-            // Reset link colors to default type colors
-            linkElements.style('stroke', d => {
-                switch (d.type) {
-                    case 'pump': return '#ef4444';      // red
-                    case 'valve': return '#8b5cf6';     // purple
-                    case 'pipe': return '#6b7280';      // gray
-                    default: return '#6b7280';          // gray
-                }
-            });
-
-            console.log('Visualization colors reset to default');
-        }
-
         // Show detailed node information
         function showNodeDetails(event, d) {
-            let details = `Node Details:\n\nID: ${d.id}\nType: ${d.type}\nElevation: ${d.elevation?.toFixed(2) || 'N/A'} m\nBase Demand: ${d.base_demand?.toFixed(3) || 'N/A'} L/s\nTotal Head: ${d.head?.toFixed(2) || 'N/A'} m`;
+            let details = `Node Details:\n\nID: ${d.id}\nType: ${d.type}\nElevation: ${d.elevation?.toFixed(2) || 'N/A'} m\nBase Demand: ${d.base_demand?.toFixed(6) || 'N/A'} L/s`;
 
-            // Add time-related data
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (csvData && dataSource && currentTimeStep !== null) {
-                const timeData = getTimeData(currentTimeStep);
-                if (timeData) {
-                    const pressure = getNodeValue(d.id, timeData.node_pressure);
-                    const demand = getNodeValue(d.id, timeData.node_demand);
-
-                    details += `\n\n=== Time ${currentTimeStep.toFixed(1)} Hours ===`;
-                    if (pressure !== undefined) details += `\nPressure: ${pressure.toFixed(2)} m`;
-
-                    // Calculate total head = pressure + elevation
-                    if (pressure !== undefined && d.elevation !== undefined) {
-                        const totalHead = pressure + d.elevation;
-                        details += `\nTotal Head: ${totalHead.toFixed(2)} m`;
-                    }
-
-                    if (demand !== undefined) details += `\nActual Demand: ${demand.toFixed(3)} L/s`;
-
-                    if (pressure === undefined && demand === undefined) {
-                        details += `\n(No dynamic data for this time step)`;
-                    }
-                }
+            if (d.pressure_avg !== undefined) {
+                details += `\n\n=== Avg Hydraulics ===`;
+                details += `\nPressure: ${d.pressure_avg.toFixed(2)} m`;
+                if (d.head_avg !== undefined) details += `\nTotal Head: ${d.head_avg.toFixed(2)} m`;
+                if (d.demand_avg !== undefined) details += `\nDemand: ${d.demand_avg.toFixed(6)} L/s`;
             }
 
             alert(details);
@@ -1242,114 +924,20 @@
 
         // Show detailed link information
         function showLinkDetails(event, d) {
-            let details = `Link Details:\n\nID: ${d.id}\nType: ${d.type}\nStart Node: ${d.source.id || d.source}\nEnd Node: ${d.target.id || d.target}\nLength: ${d.length?.toFixed(2) || 'N/A'} m\nDiameter: ${d.diameter?.toFixed(0) || 'N/A'} mm\nRoughness: ${d.roughness || 'N/A'}`;
+            let details = `Link Details:\n\nID: ${d.id}\nType: ${d.type}\nStart Node: ${d.source}\nEnd Node: ${d.target}\nLength: ${d.length?.toFixed(2) || 'N/A'} m\nDiameter: ${d.diameter ? (d.diameter * 1000).toFixed(0) : 'N/A'} mm\nRoughness: ${d.roughness || 'N/A'}`;
 
-            // Add time-related data
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (csvData && dataSource && currentTimeStep !== null) {
-                const timeData = getTimeData(currentTimeStep);
-                if (timeData) {
-                    const flow = getLinkValue(d.id, timeData.link_flow);
-                    const velocity = getLinkValue(d.id, timeData.link_velocity);
-
-                    details += `\n\n=== Time ${currentTimeStep.toFixed(1)} Hours ===`;
-                    if (flow !== undefined) details += `\nFlow: ${flow.toFixed(4)} L/s`;
-                    if (velocity !== undefined) details += `\nVelocity: ${velocity.toFixed(3)} m/s`;
-
-                    if (flow === undefined && velocity === undefined) {
-                        details += `\n(No dynamic data for this time step)`;
-                    }
-                }
+            if (d.flowrate_avg !== undefined) {
+                details += `\n\n=== Avg Hydraulics ===`;
+                details += `\nFlowrate: ${d.flowrate_avg.toFixed(6)} m³/s`;
+                if (d.velocity_avg !== undefined) details += `\nVelocity: ${d.velocity_avg.toFixed(4)} m/s`;
             }
 
             alert(details);
         }
 
-        // Update visualization data based on current time step
-        function updateVisualizationData() {
-            const dataSource = csvData?.csv_data?.data_by_time || csvData?.data_by_time;
-            if (!csvData || !dataSource || !nodeElements || !linkElements) {
-                console.log('Data visualization update failed: Missing required data', {
-                    csvData: !!csvData,
-                    data_by_time: !!dataSource,
-                    nodeElements: !!nodeElements,
-                    linkElements: !!linkElements
-                });
-                return;
-            }
-
-            // Use helper function to get time data
-            const timeData = getTimeData(currentTimeStep);
-            if (!timeData) {
-                console.log('Time step data does not exist:', currentTimeStep, 'Available time steps:', Object.keys(dataSource));
-                return;
-            }
-
-            console.log('Starting visualization data update:', {
-                timeStep: currentTimeStep,
-                nodePressureCount: Object.keys(timeData.node_pressure || {}).length,
-                linkFlowCount: Object.keys(timeData.link_flow || {}).length
-            });
-
-            // Update node colors based on pressure
-            nodeElements.style('fill', function (d) {
-                // Try matching multiple ID formats
-                let pressure = timeData.node_pressure[d.id];
-                if (pressure === undefined) {
-                    // Try adding .0 suffix
-                    pressure = timeData.node_pressure[d.id + '.0'];
-                }
-                if (pressure === undefined) {
-                    // Try removing .0 suffix
-                    const idWithoutSuffix = d.id.replace('.0', '');
-                    pressure = timeData.node_pressure[idWithoutSuffix];
-                }
-
-                if (pressure !== undefined) {
-                    // Map pressure to color (Blue=Low, Red=High)
-                    const normalizedPressure = Math.min(1, Math.max(0, pressure / 50)); // Adjust max pressure to 50m
-                    const hue = (1 - normalizedPressure) * 240; // 240=Blue, 0=Red
-                    return `hsl(${hue}, 70%, 50%)`;
-                }
-                // Keep original node type colors
-                if (d.type === 'reservoir') return '#10b981';
-                if (d.type === 'tank') return '#f59e0b';
-                return '#3b82f6'; // Junction default blue
-            });
-
-            // Update link colors based on flow
-            linkElements.style('stroke', function (d) {
-                // Try matching multiple ID formats
-                let flow = timeData.link_flow[d.id];
-                if (flow === undefined) {
-                    // Try adding .0 suffix
-                    flow = timeData.link_flow[d.id + '.0'];
-                }
-                if (flow === undefined) {
-                    // Try removing .0 suffix
-                    const idWithoutSuffix = d.id.replace('.0', '');
-                    flow = timeData.link_flow[idWithoutSuffix];
-                }
-
-                if (flow !== undefined) {
-                    const absFlow = Math.abs(flow);
-                    const normalizedFlow = Math.min(1, absFlow / 200); // Adjust max flow to 200 L/s
-                    const intensity = Math.floor(normalizedFlow * 200 + 55); // Ensure color visibility
-                    return flow >= 0 ? `rgb(0, ${intensity}, 0)` : `rgb(${intensity}, 0, 0)`;
-                }
-                // Keep original link type colors
-                if (d.type === 'pump') return '#ef4444';
-                if (d.type === 'valve') return '#8b5cf6';
-                return '#6b7280'; // Pipe default gray
-            });
-
-            console.log('Visualization data update complete');
-        }
-
         // Update node sizes
         function updateNodeSizes() {
             if (!nodeElements) return;
-
             nodeElements.attr('r', d => {
                 const baseRadius = d.type === 'reservoir' ? 12 : d.type === 'tank' ? 10 : 6;
                 return baseRadius * nodeSizeScale;
@@ -1359,7 +947,6 @@
         // Update link sizes
         function updateLinkSizes() {
             if (!linkElements) return;
-
             linkElements.attr('stroke-width', function (d) {
                 const baseWidth = d.type === 'pump' ? 4 : d.type === 'valve' ? 3 : Math.max(1, Math.min(8, (d.diameter || 100) / 50));
                 return baseWidth * linkSizeScale;

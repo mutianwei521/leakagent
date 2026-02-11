@@ -17,7 +17,7 @@ Guangzhou Institute of Industrial Intelligence
 
 ---
 
-## 🔥 News
+- **[2026-02-11]** Released leak detection module. Fixed device mismatch bugs and optimized inference pipeline.
 - **[2026-02-09]** LeakAgent code is released! Now supports advanced sensor placement and boundary optimization.
 - **[2026-01-20]** Added support for spectral clustering-based network partitioning.
 
@@ -38,7 +38,7 @@ The system orchestrates a team of specialized agents to execute complex, multi-s
 ![Overall Network Architecture](paper/scheme.png)
 *Figure 1: The architecture of LeakDetection Agent: (a) Total workflow for training; (b) Adaptor layer; (c) LTGFM layers; (d) Inference of LeakDetection Agent.*
 
-## � Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 - **OS**: Windows 10/11, Linux, macOS
@@ -49,18 +49,34 @@ The system orchestrates a team of specialized agents to execute complex, multi-s
 
 1.  **Clone the repository**
     ```bash
-    git clone https://github.com/yourusername/leakagent.git
+    git clone https://github.com/mutianwei521/leakagent.git
     cd leakagent
     ```
 
-2.  **Start the system**
+2.  **Configure Environment**
+    
+    LeakAgent requires an OpenAI API Key to power its multi-modal agents.
+    
+    - Copy the example configuration file:
+      ```bash
+      cp .env.example .env
+      # On Windows: copy .env.example .env
+      ```
+    - Open `.env` and add your API keys:
+      ```properties
+      OPENAI_API_KEY=sk-your_openai_key_here
+      SERPAPI_API_KEY=your_serpapi_key_here  # Optional
+      ```
+
+3.  **Start the system**
     ```bash
-    ./start.sh
+    ./start.sh   # Linux/Mac
+    start.bat    # Windows
     ```
     Or manually:
     ```bash
     pip install -r requirements.txt
-    python web_chat_app.py
+    python app.py
     ```
 
 3.  **Access the interface**
@@ -107,6 +123,27 @@ LeakAgent understands natural language. Here are effective prompts to get you st
 > "Analyze the network structure."
 > "How many junctions and reservoirs are there?"
 
+## 📂 Project Structure
+
+```
+leakagent/
+├── app.py                  # Main Flask application
+├── mm_wds_agent.py         # Multi-modal agent coordination logic
+├── wds_leak_main.py        # Leak detection module (Training & Inference)
+├── wds_partition_main.py   # Network partitioning module
+├── wds_sensor_main.py      # Sensor placer module
+├── LTFM-WaterNetwork/      # Deep learning models (Graph2Vec, LTFM)
+│   ├── src/models/         # Model architectures
+│   └── src/training/       # Training pipelines
+├── optimization_utils/     # Optimization algorithms (NSGA-II)
+├── partition_utils/        # Partitioning algorithms (Louvain, FCM)
+├── templates/              # HTML templates for web interface
+├── static/                 # CSS, JS, and static assets
+├── dataset/                # WNTR network files (.inp)
+├── .env.example            # Environment variables template
+└── requirements.txt        # Python dependencies
+```
+
 ## 📂 Resources
 
 **Original INP Files**:
@@ -122,12 +159,12 @@ Benchmarks are derived from the [OpenWaterAnalytics EPANET-Matlab-Toolkit](https
 
 ## ⚠️ Attention
 
-The core implementation of LeakAgent is open-sourced in this repository. Please note that the **LTGFM module** is currently proprietary and not included in this release.
+The core implementation of LeakAgent is open-sourced in this repository. Please note that the code for direct LLM-based inference is currently proprietary and not included in this release due to API issue.
 
 ## 📝 Citation
 
 As soon as possible
 
-## � License
+## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
