@@ -17,7 +17,7 @@ Guangzhou Institute of Industrial Intelligence
 
 ---
 
-- **[2026-02-11]** Released leak detection module. Fixed device mismatch bugs and optimized inference pipeline.
+- **[2026-02-11]** Released leak detection module. Fixed device mismatch bugs and optimized leak detection moudule.
 - **[2026-02-09]** LeakAgent code is released! Now supports advanced sensor placement and boundary optimization.
 - **[2026-01-20]** Added support for spectral clustering-based network partitioning.
 
