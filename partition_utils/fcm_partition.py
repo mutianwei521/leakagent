@@ -1,6 +1,6 @@
 """
-供水管网的 FCM (Fuzzy C-Means，模糊 C 均值) 分区模块。
-基于压力敏感性分析和模糊聚类算法。
+FCM (Fuzzy C-Means) partitioning module for water distribution networks.
+Based on pressure sensitivity analysis and fuzzy clustering algorithm.
 """
 import os
 import json
@@ -21,7 +21,7 @@ except ImportError as e:
 
 
 def setup_logger(name: str):
-    """为 FCM 分区模块设置日志记录器"""
+    """Set up logger for FCM partition module"""
     logger = logging.getLogger(f"fcm.{name}")
     logger.setLevel(logging.INFO)
     
@@ -39,24 +39,24 @@ def setup_logger(name: str):
 logger = setup_logger("FCMPartition")
 
 
-# ==================== 默认参数 ====================
+# ==================== Default Parameters ====================
 
 DEFAULT_PARAMS = {
-    'k': 5,  # 分区数量
-    'm': 1.5,  # FCM 模糊性参数
-    'error': 1e-6,  # 收敛阈值
-    'maxiter': 1000,  # 最大迭代次数
-    'perturb_rate': 0.1,  # 敏感性分析的扰动率
-    'k_nearest': 10,  # KNN 参数，用于处理异常值
-    'outliers_detection': True,  # 启用异常值检测
-    'seed': 42  # 随机种子
+    'k': 5,  # Number of partitions
+    'm': 1.5,  # FCM fuzziness parameter
+    'error': 1e-6,  # Convergence threshold
+    'maxiter': 1000,  # Maximum iterations
+    'perturb_rate': 0.1,  # Perturbation rate for sensitivity analysis
+    'k_nearest': 10,  # KNN parameter for outlier handling
+    'outliers_detection': True,  # Enable outlier detection
+    'seed': 42  # Random seed
 }
 
 
-# ==================== 核心函数 ====================
+# ==================== Core Functions ====================
 
 def normalize_matrix(S):
-    """使用标准化方法归一化敏感性矩阵"""
+    """Normalize sensitivity matrix using standardization method"""
     S_mean = np.mean(S, axis=0)
     S_std = np.std(S, axis=0)
     epsilon = 1e-10
@@ -72,73 +72,73 @@ def normalize_matrix(S):
 
 def compute_sensitivity_matrix(wn, perturb_rate: float = 0.1):
     """
-    基于需水量扰动计算压力敏感性矩阵。
+    Compute pressure sensitivity matrix based on demand perturbation.
     
-    参数:
-        wn: WNTR 供水管网模型
-        perturb_rate: 需水量扰动率 (默认为 0.1)
+    Args:
+        wn: WNTR water network model
+        perturb_rate: Demand perturbation rate (default 0.1)
     
-    返回:
-        tuple: (节点列表, 需水节点列表, 敏感性矩阵)
+    Returns:
+        tuple: (node_list, demand_node_list, sensitivity_matrix)
     """
     logger.info(f"Computing sensitivity matrix (perturbation rate: {perturb_rate})")
     
-    # 清理所有需水模式的 base_value
-    # 某些 INP 文件可能包含非数字的基准值，这会导致模拟错误
+    # Clean up base_value for all demand patterns
+    # Some INP files may contain non-numeric base values, causing simulation errors
     sanitized_count = 0
     for name in wn.junction_name_list:
         node = wn.get_node(name)
         for ts in node.demand_timeseries_list:
             try:
-                # 尝试转换为浮点数
+                # Try converting to float
                 if ts.base_value is None:
                     ts.base_value = 0.0
                 else:
                     float(ts.base_value)
             except (TypeError, ValueError):
-                # 如果转换失败，则默认为 1.0（保守假设）
+                # If conversion fails, default to 1.0 (conservative assumption)
                 sanitized_count += 1
                 try:
                     ts.base_value = 1.0
                 except:
-                    pass # 尽可能尝试
+                    pass # Try as much as possible
                     
     if sanitized_count > 0:
         logger.warning(f"Sanitized {sanitized_count} non-numeric base_values to 1.0")
 
-    # 运行基准模拟
+    # Run baseline simulation
     sim = wntr.sim.EpanetSimulator(wn)
     res = sim.run_sim()
     
     node_list = wn.node_name_list
     demand_nodes = wn.junction_name_list
     
-    # 计算总需水量
+    # Calculate total demand
     total_demand = 0
     for name in demand_nodes:
         node_demands = res.node['demand'].loc[:, name]
         total_demand += node_demands.sum()
     
-    # 初始化敏感性矩阵
+    # Initialize sensitivity matrix
     n_nodes = len(demand_nodes)
     S = np.zeros((n_nodes, n_nodes))
     
-    # 获取基准压力
+    # Get baseline pressure
     base_p = res.node['pressure'].loc[:, demand_nodes].values
     delta = float(total_demand * perturb_rate / len(res.node['demand']))
     
-    # 对每个需水节点进行扰动
+    # Perturb each demand node
     for j, name in enumerate(demand_nodes):
         if (j + 1) % 50 == 0 or j == 0:
             logger.info(f"Processing node {j+1}/{n_nodes}: {name} ({(j+1)/n_nodes*100:.1f}%)")
         
-        # 获取需水时间序列
+        # Get demand timeseries
         ts_list = wn.get_node(name).demand_timeseries_list
         orig_values = []
         for d in ts_list:
             orig_values.append(d.base_value if d.base_value is not None else 0.0)
         
-        # 应用扰动
+        # Apply perturbation
         for d, orig in zip(ts_list, orig_values):
             try:
                 orig_float = float(orig) if orig is not None else 0.0
@@ -151,15 +151,15 @@ def compute_sensitivity_matrix(wn, perturb_rate: float = 0.1):
                 d.base_value = delta
         
         try:
-            # 运行扰动后的模拟
+            # Run perturbed simulation
             sim = wntr.sim.EpanetSimulator(wn)
             res_pert = sim.run_sim()
             pert_p = res_pert.node['pressure'].loc[:, demand_nodes].values
             
-            # 计算压力差
+            # Calculate pressure difference
             current_node_p_diff = np.abs(pert_p[:, j] - base_p[:, j])
             
-            # 计算敏感性
+            # Calculate sensitivity
             with np.errstate(divide='ignore', invalid='ignore'):
                 S[:, j] = np.mean(np.where(current_node_p_diff[:, np.newaxis] != 0,
                                           np.abs(pert_p - base_p) / current_node_p_diff[:, np.newaxis],
@@ -168,7 +168,7 @@ def compute_sensitivity_matrix(wn, perturb_rate: float = 0.1):
             logger.warning(f"Simulation failed for node {name}: {e}")
             S[:, j] = 0
         
-        # 恢复原始需水量
+        # Restore original demand
         for d, orig in zip(ts_list, orig_values):
             try:
                 d.base_value = float(orig) if orig is not None else 0.0
@@ -181,14 +181,14 @@ def compute_sensitivity_matrix(wn, perturb_rate: float = 0.1):
 
 def perform_fcm_clustering(S_normalized, params):
     """
-    执行 FCM (模糊 C 均值) 聚类。
+    Perform FCM (Fuzzy C-Means) clustering.
     
-    参数:
-        S_normalized: 归一化后的敏感性矩阵
-        params: 聚类参数 (k, m, error, maxiter, seed)
+    Args:
+        S_normalized: Normalized sensitivity matrix
+        params: Clustering parameters (k, m, error, maxiter, seed)
     
-    返回:
-        tuple: (标签, 聚类信息, 错误)
+    Returns:
+        tuple: (labels, clustering_info, error)
     """
     if not SKFUZZY_AVAILABLE:
         return None, None, {'error': 'scikit-fuzzy library not installed'}
@@ -197,7 +197,7 @@ def perform_fcm_clustering(S_normalized, params):
     
     np.random.seed(params['seed'])
     
-    # 执行 FCM 聚类
+    # Execute FCM clustering
     cntr, u, u0, d, jm, p, fpc = fuzz.cluster.cmeans(
         data=S_normalized.T,
         c=params['k'],
@@ -208,7 +208,7 @@ def perform_fcm_clustering(S_normalized, params):
         seed=params['seed']
     )
     
-    # 获取标签（从 1 开始）
+    # Get labels (starting from 1)
     labels = np.argmax(u, axis=0) + 1
     
     logger.info(f"FCM clustering complete: iterations={p}, FPC={fpc:.4f}")
@@ -223,7 +223,7 @@ def perform_fcm_clustering(S_normalized, params):
 
 
 def check_connectivity(node_connections, cluster_nodes):
-    """使用 Warshall 算法检查节点的连通性"""
+    """Check connectivity of nodes using Warshall algorithm"""
     n = len(cluster_nodes)
     adj_matrix = np.zeros((n, n), dtype=int)
     
@@ -237,7 +237,7 @@ def check_connectivity(node_connections, cluster_nodes):
                 if np.any(mask1) or np.any(mask2):
                     adj_matrix[i, j] = 1
     
-    # 用于传递闭包的 Warshall 算法
+    # Warshall algorithm for transitive closure
     for k in range(n):
         for i in range(n):
             for j in range(n):
@@ -247,7 +247,7 @@ def check_connectivity(node_connections, cluster_nodes):
 
 
 def find_connected_components(connect_matrix):
-    """查找到所有的连通分量"""
+    """Find all connected components"""
     n = len(connect_matrix)
     visited = np.zeros(n, dtype=bool)
     components = []
@@ -271,7 +271,7 @@ def find_connected_components(connect_matrix):
 
 
 def assign_unassigned_nodes_by_nearest_neighbor(wn, nodes, demands, labels, params):
-    """将未分配的节点分配到最近的分区"""
+    """Assign unassigned nodes to the nearest partition"""
     unassigned_indices = [i for i, label in enumerate(labels) if label == 0]
     
     if len(unassigned_indices) == 0:
@@ -279,7 +279,7 @@ def assign_unassigned_nodes_by_nearest_neighbor(wn, nodes, demands, labels, para
     
     logger.info(f"Assigning {len(unassigned_indices)} unassigned nodes using nearest neighbor")
     
-    # 获取节点坐标
+    # Get node coordinates
     node_coords = {}
     layout = None
     
@@ -298,7 +298,7 @@ def assign_unassigned_nodes_by_nearest_neighbor(wn, nodes, demands, labels, para
             coord = layout.get(node_name, (0, 0))
         node_coords[node_name] = coord
     
-    # 按分区构建已分配节点列表
+    # Build list of assigned nodes by partition
     assigned_nodes_by_partition = {}
     for i, demand_node in enumerate(demands):
         if labels[i] > 0:
@@ -334,7 +334,7 @@ def assign_unassigned_nodes_by_nearest_neighbor(wn, nodes, demands, labels, para
 
 
 def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
-    """迭代地检测并处理异常值"""
+    """Iteratively detect and handle outliers"""
     if not params.get('outliers_detection', True):
         logger.info("Outlier detection disabled")
         return raw_labels
@@ -348,7 +348,7 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
             idx = list(demands).index(node)
             all_labels[i] = raw_labels[idx]
     
-    # 获取节点连接关系
+    # Get node connections
     node_connections = []
     for link in wn.links():
         node1 = link[1].start_node_name
@@ -365,7 +365,7 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
         
         logger.info(f"Outlier detection iteration {iteration + 1}, unassigned: {zero_count}")
         
-        # 类型 1 异常值：基于邻居标签的一致性
+        # Type 1 outliers: Based on neighbor label consistency
         for i, node in enumerate(nodes):
             if all_labels[i] != 99999:
                 connected_nodes = []
@@ -390,13 +390,13 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
                     else:
                         all_labels[i] = 0
         
-        # 类型 2 异常值：基于空间距离和连通性
+        # Type 2 outliers: Based on spatial distance and connectivity
         for cluster in range(1, int(np.max(all_labels)) + 1):
             cluster_nodes = np.where(all_labels == cluster)[0]
             if len(cluster_nodes) <= 1:
                 continue
             
-            # 获取坐标
+            # Get coordinates
             coordinates = []
             elevations = []
             for node_idx in cluster_nodes:
@@ -412,13 +412,13 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
             
             features = np.column_stack([coordinates, elevations])
             
-            # 计算距离矩阵
+            # Calculate distance matrix
             dist_matrix = np.zeros((len(cluster_nodes), len(cluster_nodes)))
             for i in range(len(cluster_nodes)):
                 for j in range(len(cluster_nodes)):
                     dist_matrix[i, j] = np.linalg.norm(features[i] - features[j])
             
-            # 计算 KNN 距离
+            # Calculate KNN distance
             knn_distances = []
             for i in range(len(cluster_nodes)):
                 distances = dist_matrix[i, :]
@@ -438,7 +438,7 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
                 outliers = (knn_distances <= mean_dist - 3 * std_dist) | (knn_distances >= mean_dist + 3 * std_dist)
                 all_labels[cluster_nodes[outliers]] = 0
             
-            # 检查连通性
+            # Check connectivity
             connect_matrix = check_connectivity(node_connections, cluster_nodes)
             components = find_connected_components(connect_matrix)
             
@@ -447,13 +447,13 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
                 outliers = np.setdiff1d(np.arange(len(cluster_nodes)), main_component)
                 all_labels[cluster_nodes[outliers]] = 0
     
-    # 更新原始标签 (raw_labels)
+    # Update original labels (raw_labels)
     for i, node in enumerate(nodes):
         if node in demands:
             idx = list(demands).index(node)
             raw_labels[idx] = all_labels[i]
     
-    # 处理剩余的未分配节点
+    # Handle remaining unassigned nodes
     unassigned_count = np.sum(raw_labels == 0)
     if unassigned_count > 0:
         logger.info(f"Assigning {unassigned_count} remaining unassigned nodes")
@@ -463,21 +463,21 @@ def remove_outliers_iteratively(wn, nodes, demands, raw_labels, params):
 
 
 def generate_fcm_visualization(wn, nodes, demands, labels, params, output_path):
-    """生成 FCM 分区可视化"""
+    """Generate FCM partition visualization"""
     logger.info("Generating FCM partition visualization...")
     
     plt.rcParams['font.family'] = 'DejaVu Sans'
     plt.rcParams['axes.unicode_minus'] = False
     
     G = wn.to_graph().to_undirected()
-    # 转换为简单图以避免多重边绘制过程中的伪影（环）
+    # Convert to simple graph to avoid artifacts (loops) during multi-edge drawing
     G = nx.Graph(G)
     try:
         G.remove_edges_from(nx.selfloop_edges(G))
     except (TypeError, ValueError):
         pass
     
-    # 准备节点位置
+    # Prepare node positions
     pos = {}
     layout = None
     for n in G.nodes():
@@ -502,10 +502,10 @@ def generate_fcm_visualization(wn, nodes, demands, labels, params, output_path):
     
     plt.figure(figsize=(14, 10))
     
-    # 绘制边
+    # Draw edges
     nx.draw_networkx_edges(G, pos=pos, alpha=0.4, width=0.8, edge_color='gray')
     
-    # 绘制带有分区颜色的节点
+    # Draw nodes with partition colors
     scatter = nx.draw_networkx_nodes(
         G, pos=pos,
         nodelist=list(nodes),
@@ -515,7 +515,7 @@ def generate_fcm_visualization(wn, nodes, demands, labels, params, output_path):
         node_size=30
     )
     
-    # 添加图例
+    # Add legend
     legend_labels = ['Unassigned'] + [f'Partition {i}' for i in range(1, params['k'] + 1)]
     plt.legend(scatter.legend_elements()[0], legend_labels,
               title="Partition",
@@ -534,16 +534,16 @@ def generate_fcm_visualization(wn, nodes, demands, labels, params, output_path):
 
 
 def save_fcm_results(nodes, demands, labels, params, clustering_info, output_dir):
-    """将 FCM 分区结果保存到文件"""
+    """Save FCM partition results to file"""
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # 准备节点分配信息
+    # Prepare node assignment information
     node_assignments = {}
     for i, node_id in enumerate(demands):
         node_assignments[node_id] = int(labels[i])
     
-    # 构建摘要
+    # Build summary
     partition_summary = {
         str(params['k']): {
             'node_assignments': node_assignments,
@@ -561,12 +561,12 @@ def save_fcm_results(nodes, demands, labels, params, clustering_info, output_dir
         }
     }
     
-    # 保存摘要 JSON
+    # Save summary JSON
     summary_file = os.path.join(output_dir, 'fcm_partition_summary.json')
     with open(summary_file, 'w') as f:
         json.dump(partition_summary, f, indent=2, ensure_ascii=False)
     
-    # 计算分区统计信息
+    # Calculate partition statistics
     partition_stats = {}
     for i in range(1, params['k'] + 1):
         count = int(np.sum(labels == i))
@@ -586,10 +586,10 @@ def save_fcm_results(nodes, demands, labels, params, clustering_info, output_dir
     }
 
 
-# ==================== 代理 (Agent) 主接口 ====================
+# ==================== Agent Main Interface ====================
 
 def run_fcm_partitioning_for_agent(inp_file: str, num_partitions: int = 5, fuzziness: float = 1.5) -> dict:
-    """FCM 分区代理集成的程序入口点。"""
+    """Entry point for FCM partitioning agent integration."""
     if not WNTR_AVAILABLE:
         return {"status": "error", "error": "WNTR library not installed"}
     
@@ -599,7 +599,7 @@ def run_fcm_partitioning_for_agent(inp_file: str, num_partitions: int = 5, fuzzi
     output_dir = 'partition_results'
     
     try:
-        # 设置参数
+        # Set parameters
         params = DEFAULT_PARAMS.copy()
         params['k'] = num_partitions
         params['m'] = fuzziness

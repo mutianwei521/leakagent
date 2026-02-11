@@ -5,12 +5,12 @@ import wntr
 import numpy as np
 import pandas as pd
 
-# 定义存储目录
+# Define storage directory
 RAG_STORAGE_DIR = os.path.join(os.getcwd(), "rag_storage")
 os.makedirs(RAG_STORAGE_DIR, exist_ok=True)
 
 def compute_md5(file_path):
-    """通过 MD5 算法计算文件的哈希值。"""
+    """Compute MD5 hash of a file."""
     hash_md5 = hashlib.md5()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -18,18 +18,18 @@ def compute_md5(file_path):
     return hash_md5.hexdigest()
 
 def get_cached_path(md5_hash):
-    """根据给定的 MD5 哈希值，返回缓存的 JSON 文件的路径。"""
+    """Return path of cached JSON file based on given MD5 hash."""
     return os.path.join(RAG_STORAGE_DIR, f"{md5_hash}.json")
 
 def ingest_inp_file(inp_file_path):
     """
-    摄取 INP 文件：
-    1. 计算 MD5。
-    2. 检查是否已有缓存。
-    3. 若无缓存，则运行 WNTR 模拟。
-    4. 提取结构和水力数据。
-    5. 保存到 JSON 文件。
-    返回元数据字典。
+    Ingest INP file:
+    1. Compute MD5.
+    2. Check if cache exists.
+    3. If no cache, run WNTR simulation.
+    4. Extract structural and hydraulic data.
+    5. Save to JSON file.
+    Returns metadata dictionary.
     """
     md5_hash = compute_md5(inp_file_path)
     cache_path = get_cached_path(md5_hash)
@@ -42,15 +42,15 @@ def ingest_inp_file(inp_file_path):
     print(f">>> Ingesting new network: {inp_file_path} (MD5: {md5_hash})")
     
     try:
-        # 加载并模拟
+        # Load and simulate
         wn = wntr.network.WaterNetworkModel(inp_file_path)
         sim = wntr.sim.EpanetSimulator(wn)
         results = sim.run_sim()
         
-        # 构建用于拓扑查询的 NetworkX 图
+        # Build NetworkX graph for topological queries
         G = wn.get_graph()
         
-        # 提取基础统计数据
+        # Extract basic statistics
         stats = {
             "node_count": wn.num_nodes,
             "link_count": wn.num_links,
@@ -62,7 +62,7 @@ def ingest_inp_file(inp_file_path):
             "pipe_count": wn.num_pipes
         }
         
-        # 提取水力摘要（平均值）
+        # Extract hydraulics summary (averages)
         try:
             avg_pressure = results.node['pressure'].mean().mean()
             min_pressure = results.node['pressure'].min().min()
@@ -78,10 +78,10 @@ def ingest_inp_file(inp_file_path):
             "max_pressure": float(max_pressure)
         }
         
-        # --- 详细元素提取 ---
+        # --- Detailed Element Extraction ---
         detailed_nodes = {}
         for node_name, node in wn.nodes():
-            # 静态属性
+            # Static properties
             node_data = {
                 "type": node.node_type,
                 "coordinates": node.coordinates if hasattr(node, "coordinates") else None,
@@ -89,7 +89,7 @@ def ingest_inp_file(inp_file_path):
                 "base_demand": float(node.base_demand) if hasattr(node, "base_demand") else 0.0
             }
             
-            # 动态结果（随时间平均）
+            # Dynamic results (averaged over time)
             if hasattr(results, "node"):
                 if "pressure" in results.node:
                      node_data["pressure_avg"] = float(results.node['pressure'][node_name].mean())
@@ -98,17 +98,17 @@ def ingest_inp_file(inp_file_path):
                 if "demand" in results.node:
                      node_data["demand_avg"] = float(results.node['demand'][node_name].mean())
 
-            # 拓扑结构
+            # Topology
             if node_name in G:
                 neighbors = list(G.neighbors(node_name))
                 links = []
-                # 查找连接的链路
+                # Find connected links
                 for nbr in neighbors:
-                    # MultiGraph 可能具有多条边
+                    # MultiGraph might have multiple edges
                     edge_data = G.get_edge_data(node_name, nbr)
                     if edge_data:
                         for k, v in edge_data.items():
-                             links.append(k) # k 是 wntr 图中的链路名称 (link_name)
+                             links.append(k) # k is the link name in wntr graph (link_name)
                 
                 node_data["neighbors"] = neighbors
                 node_data["connected_links"] = list(set(links))
@@ -117,7 +117,7 @@ def ingest_inp_file(inp_file_path):
 
         detailed_links = {}
         for link_name, link in wn.links():
-            # 静态属性
+            # Static properties
             link_data = {
                 "type": link.link_type,
                 "start_node": link.start_node_name,
@@ -128,7 +128,7 @@ def ingest_inp_file(inp_file_path):
                 link_data["diameter"] = float(link.diameter)
                 link_data["roughness"] = float(link.roughness)
             
-            # 动态结果
+            # Dynamic results
             if hasattr(results, "link"):
                 if "flowrate" in results.link:
                     link_data["flowrate_avg"] = float(results.link['flowrate'][link_name].mean())
@@ -155,7 +155,7 @@ def ingest_inp_file(inp_file_path):
         }
         
         print(f">>> Ingestion successful. Stats: {stats}")
-        # 保存到磁盘
+        # Save to disk
         with open(cache_path, "w", encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             
@@ -169,8 +169,8 @@ def ingest_inp_file(inp_file_path):
 
 def retrieve_knowledge(inp_file_path, query_type="summary", entity_id=None):
     """
-    检索文件的知识。
-    如果不存在，则触发摄取逻辑。
+    Retrieve knowledge of the file.
+    If not exists, trigger ingestion logic.
     """
     data = ingest_inp_file(inp_file_path)
     if "error" in data:

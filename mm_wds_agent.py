@@ -36,18 +36,18 @@ from optimization_utils.rag_manager import ingest_inp_file, retrieve_knowledge
 @tool
 def hydraulic_inspector(inp_file: str, query: str):
     """
-    水力检查工具。
-    当用户询问水力属性、节点数量、管道数量或模拟结果时，请使用此工具。
-    不要盲目运行模拟。此工具会首先检查知识图谱。
+    Hydraulic Inspector Tool.
+    Use this tool when users ask about hydraulic properties, node counts, pipe counts, or simulation results.
+    Do not run simulations blindly. This tool first checks the knowledge graph.
     """
     try:
-        # 摄取/检索数据
+        # Ingest/Retrieve data
         data = retrieve_knowledge(inp_file, query_type="summary")
         if "error" in data:
             return json.dumps({"status": "error", "error": data["error"]})
 
-        # 将结构化摘要直接返回给大模型（LLM）
-        # 大模型将解析 JSON 以回答用户的问题（例如“计算节点数量”）。
+        # Return structured summary directly to LLM
+        # The LLM will parse the JSON to answer user questions (e.g., "Calculate node count").
         return json.dumps({
             "status": "success",
             "source": "GraphRAG Cache",
@@ -62,8 +62,8 @@ def hydraulic_inspector(inp_file: str, query: str):
 @tool
 def reliability_assessor(inp_file: str):
     """
-    可靠性评估工具。
-    计算流量熵（FEF）和管网弹性（NR）。
+    Reliability Assessor Tool.
+    Calculates Flow Entropy (FEF) and Network Resilience (NR).
     """
     try:
         wn = wntr.network.WaterNetworkModel(inp_file)
@@ -86,12 +86,12 @@ def reliability_assessor(inp_file: str):
 @tool
 def graph_rag_retriever(inp_file: str, entity_id: str):
     """
-    拓扑语义 GraphRAG 工具。
-    从知识图谱中检索关于节点或链路（例如 'J-10' 或 'Pipe-1'）的具体细节。
-    当用户询问特定元素时使用此工具。
+    Topological Semantic GraphRAG Tool.
+    Retrieves specific details about nodes or links (e.g., 'J-10' or 'Pipe-1') from the knowledge graph.
+    Use this tool when users ask about specific network elements.
     """
     try:
-        # 传递 query_type="entity" 以获取详细数据
+        # Pass query_type="entity" to get detailed data
         data = retrieve_knowledge(inp_file, query_type="entity", entity_id=entity_id)
         
         if "error" in data:
@@ -109,28 +109,28 @@ def graph_rag_retriever(inp_file: str, entity_id: str):
 @tool
 def network_partitioner(inp_file: str, num_partitions: Optional[int] = None, algorithm: Optional[str] = None):
     """
-    管网分区工具。
-    当用户要求将管网“分区”或“划分”为区域/社区时，请使用此工具。
+    Network Partitioner Tool.
+    Use this tool when users ask to "partition" or "divide" the network into zones/communities.
     
-    算法选择：
-    - 默认：“louvain”（使用模块化优化的社区检测）
-    - 备选：“fcm”（基于压力敏感性的模糊 C 均值聚类）
+    Algorithm Selection:
+    - Default: "louvain" (Modularity-based community detection)
+    - Alternative: "fcm" (Fuzzy C-Means clustering based on pressure sensitivity)
     
-    当用户明确提到“FCM”、“模糊”、“模糊 C 均值”、“基于敏感性”或“压力敏感性”分区时使用 FCM。
+    Use FCM when user explicitly mentions "FCM", "fuzzy", "fuzzy c-means", "sensitivity-based", or "pressure sensitivity".
     
-    重要 - “num_partitions” 如何工作：
-    - Louvain：产生离散的分区计数；如果目标较低，则合并社区。
-    - FCM：直接使用指定的聚类数量。
+    Important - How 'num_partitions' works:
+    - Louvain: Produces discrete partition counts; merges communities if target is lower.
+    - FCM: Uses the specified cluster count directly.
     
-    如果用户指定了数量（例如，“5 个区域”，“划分为 3 个”），请将其作为 'num_partitions' 传递。
-    仅在用户明确请求基于 FCM 的分区时传递 algorithm="fcm"。
+    If user specifies a number (e.g., "5 zones", "divide into 3"), pass it as 'num_partitions'.
+    Only pass algorithm="fcm" if user explicitly requests FCM-based partitioning.
     """
     try:
-        # 默认为 Louvain 算法
+        # Default to Louvain algorithm
         use_fcm = algorithm and algorithm.lower() in ['fcm', 'fuzzy', 'fuzzy-c-means', 'fuzzycmeans']
         
         if use_fcm:
-            # 使用 FCM 分区
+            # Use FCM partitioning
             from partition_utils.fcm_partition import run_fcm_partitioning_for_agent
             
             result = run_fcm_partitioning_for_agent(
@@ -142,27 +142,27 @@ def network_partitioner(inp_file: str, num_partitions: Optional[int] = None, alg
             if result["status"] == "error":
                 return json.dumps({"status": "error", "error": result["error"]})
             
-            # 格式化针对 FCM 的响应
+            # Format response for FCM
             base_url = "http://127.0.0.1:5000"
             
             response_text = f"## ✅ {result.get('msg', 'FCM partitioning completed.')}\n\n"
             response_text += "---\n\n"
             response_text += "### 📊 FCM Partitioning Results\n\n"
             
-            # 分区统计表
+            # Partition stats table
             response_text += "| Partition | Node Count |\n"
             response_text += "|-----------|------------|\n"
             for partition, count in result['partition_stats'].items():
                 response_text += f"| {partition} | {count} |\n"
             response_text += "\n"
             
-            # 指标
+            # Metrics
             response_text += "### 📈 Clustering Metrics\n\n"
             response_text += f"- **Fuzzy Partition Coefficient (FPC):** {result['metrics']['fpc']:.4f}\n"
             response_text += f"- **Convergence Iterations:** {result['metrics']['iterations']}\n"
             response_text += f"- **Fuzziness Parameter (m):** {result['fuzziness']}\n\n"
             
-            # 可视化
+            # Visualization
             if result.get('viz_file'):
                 viz_filename = os.path.basename(result['viz_file'])
                 response_text += "### 🖼️ Visualization\n\n"
@@ -187,7 +187,7 @@ def network_partitioner(inp_file: str, num_partitions: Optional[int] = None, alg
             }, ensure_ascii=False)
             
         else:
-            # 使用 Louvain 算法（默认）
+            # Use Louvain algorithm (Default)
             from optimization_utils.partition_manager import run_partitioning_for_agent
             
             result = run_partitioning_for_agent(inp_file, target_k=num_partitions)
@@ -195,14 +195,14 @@ def network_partitioner(inp_file: str, num_partitions: Optional[int] = None, alg
             if result["status"] == "error":
                  return json.dumps({"status": "error", "error": result["error"]})
             
-            # 使用增强的 Markdown 格式化用户友好的响应
+            # Format user-friendly response with enhanced Markdown
             base_url = "http://127.0.0.1:5000"
             
             response_text = f"## ✅ {result.get('msg', 'Partitioning completed.')}\n\n"
             response_text += "---\n\n"
             response_text += "### 📊 Output Files\n\n"
             
-            # 图像
+            # Images
             for plot_path in result['plots']:
                  filename = os.path.basename(plot_path)
                  label = filename.replace(".png", "").replace("_", " ").title()
@@ -235,13 +235,14 @@ def network_partitioner(inp_file: str, num_partitions: Optional[int] = None, alg
 @tool
 def boundary_analyzer(inp_file: str, num_partitions: Optional[int] = None):
     """
-    分析分区之间的边界管道。
-    当用户询问“边界管道”、“切割边”、“隔离阀”、“区域之间的连接”或“边界管段”时，请使用此工具。
+    Boundary Pipe Analyzer Tool.
+    Use this tool when user asks about "boundary pipes", "cut edges", "isolation valves", 
+    "connections between zones", or "boundary segments".
     
-    该工具会自动根据 INP 文件查找分区结果。
-    无需单独上传 partition_summary.json。
+    This tool automatically finds partition results based on the INP file.
+    No need to upload partition_summary.json separately.
     
-    如果未指定 num_partitions，它将使用现有的分区结果。
+    If num_partitions is not specified, it uses existing partition results.
     """
     try:
         from optimization_utils.zone_optimizer import analyze_boundary_pipes
@@ -251,7 +252,7 @@ def boundary_analyzer(inp_file: str, num_partitions: Optional[int] = None):
         if result["status"] == "error":
             return json.dumps({"status": "error", "error": result["error"]})
         
-        # 使用增强的 Markdown 格式化响应
+        # Format response with enhanced Markdown
         base_url = "http://127.0.0.1:5000"
         
         response_text = f"## 🔗 Boundary Pipe Analysis ({result['partition_count']} Zones)\n\n"
@@ -261,7 +262,7 @@ def boundary_analyzer(inp_file: str, num_partitions: Optional[int] = None):
         response_text += "| Pipe | From Node | To Node | Zone→Zone | Diameter (mm) | Length (m) |\n"
         response_text += "|------|-----------|---------|-----------|---------------|------------|\n"
         
-        for p in result['boundary_pipes'][:20]:  # 为了可读性限制为 20 个
+        for p in result['boundary_pipes'][:20]:  # Limit to 20 for readability
             response_text += f"| {p['pipe']} | {p['from_node']} | {p['to_node']} | {p['zone_from']}→{p['zone_to']} | {p['diameter_mm']} | {p['length_m']} |\n"
         
         if result['boundary_pipe_count'] > 20:
@@ -286,17 +287,18 @@ def boundary_analyzer(inp_file: str, num_partitions: Optional[int] = None):
 def zone_optimizer(inp_file: str, num_partitions: Optional[int] = None, 
                    pop_size: int = 20, n_gen: int = 50):
     """
-    对分区边界配置运行 NSGA-II 优化。
-    目标：最大化 FEF、HRE、MRE、NR；最小化开启管道。
-    当用户要求“优化”、“改进”或寻找“最佳配置”以获得特定数量的区域时，请使用此工具。
+    Run NSGA-II optimization for partition boundary configuration.
+    Objectives: Maximize FEF, HRE, MRE, NR; Minimize Open Pipes.
+    Use this tool when user asks to "optimize", "improve", or find "best configuration" 
+    for a specific number of zones.
     
-    该工具针对单一分区计数（例如 10 个区域）优化边界管道的阀门状态（开启/关闭）。
-    它不会寻找最佳分区数量。
+    This tool optimizes valve states (Open/Closed) for boundary pipes of a single partition count (e.g., 10 zones).
+    It does not find the optimal number of partitions.
     """
     try:
         from optimization_utils.zone_optimizer import run_zone_optimization
         
-        # 除非用户另有指定，否则默认使用低迭代次数以保证交互速度
+        # Default to low iteration count for interactive speed unless user specifies otherwise
         result = run_zone_optimization(
             inp_file, 
             target_k=num_partitions,
@@ -307,7 +309,7 @@ def zone_optimizer(inp_file: str, num_partitions: Optional[int] = None,
         if result["status"] == "error":
             return json.dumps({"status": "error", "error": result["error"]})
             
-        # 增强的 Markdown 输出
+        # Enhanced Markdown output
         base_url = "http://127.0.0.1:5000"
         obj = result['best_objectives']
         
@@ -341,19 +343,20 @@ def zone_optimizer(inp_file: str, num_partitions: Optional[int] = None,
 @tool
 def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
     """
-    视觉感知分析工具。
-    当用户要求“可视化”、“显示热力图”、“分析压力分布”、“显示流量模式”、“视觉分析”或“生成管网图”时，请使用此工具。
+    Visual Perception Analysis Tool.
+    Use this tool when users ask to "visualize", "show heatmap", "analyze pressure distribution", 
+    "show flow patterns", "visual analysis", or "generate network map".
     
-    该工具生成视觉热图并从管网中提取视觉特征：
-    - 压力热图（蓝色=低压，红色=高压）
-    - 流量可视化（线宽 = 速度）
-    - 拓扑异常检测（末端、桥接）
+    This tool generates visual heatmaps and extracts visual features from the network:
+    - Pressure Heatmap (Blue=Low, Red=High)
+    - Flow Visualization (Line width = Velocity)
+    - Topological Anomalies (Dead-ends, Bridges)
     
-    analysis_type 选项：
-    - "pressure": 仅压力热图
-    - "flow": 仅流量可视化  
-    - "combined": 压力和流量（默认）
-    - "features": 提取视觉特征而不生成图像
+    analysis_type options:
+    - "pressure": Pressure heatmap only
+    - "flow": Flow visualization only
+    - "combined": Pressure and Flow (Default)
+    - "features": Extract visual features without generating images
     """
     try:
         from partition_utils.visual_perception import (
@@ -365,7 +368,7 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
         
         base_url = "http://127.0.0.1:5000"
         
-        # 运行视觉分析
+        # Run visual analysis
         result = analyze_network_visually(inp_file)
         
         if "error" in result:
@@ -376,31 +379,31 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
         response_text += f"**Network Size:** {result['node_count']} nodes, {result['link_count']} links\n\n"
         response_text += "---\n\n"
         
-        # 热图图像
+        # Heatmap Images
         response_text += "### 📊 Generated Visualizations\n\n"
         
         for viz_type, path in result['heatmap_paths'].items():
             if analysis_type == "combined" or analysis_type == viz_type:
                 filename = os.path.basename(path)
                 label = viz_type.replace("_", " ").title()
-                # 使用相对路径进行网页显示
+                # Use relative path for web display
                 rel_path = path.replace("\\", "/")
                 response_text += f"**{label} Heatmap:**\n\n"
                 response_text += f"![{label}]({base_url}/visual_outputs/{filename})\n\n"
                 response_text += f"🖼️ [Download {label} Image]({base_url}/visual_outputs/{filename})\n\n"
         
-        # 视觉特征
+        # Visual Features
         features = result['visual_features']
         response_text += "---\n\n"
         response_text += "### 🔍 Extracted Visual Features\n\n"
         
-        # 拓扑异常
+        # Topological Anomalies
         topo = features.get('topological_anomalies', {})
         response_text += "**Topological Analysis:**\n"
         response_text += f"- 🌉 Bridge Nodes (Critical): {topo.get('bridge_count', 0)}\n"
         response_text += f"- 🌿 Dead-End Nodes: {topo.get('dead_end_count', 0)}\n\n"
         
-        # 压力模式
+        # Pressure Patterns
         pressure = features.get('pressure_patterns', {})
         if pressure:
             response_text += "**Pressure Patterns:**\n"
@@ -408,7 +411,7 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
             response_text += f"- Pressure Range: {pressure.get('range', 0):.2f} m\n"
             response_text += f"- Uniformity (CV): {pressure.get('cv', 0):.3f}\n\n"
         
-        # 流量模式
+        # Flow Patterns
         flow = features.get('flow_patterns', {})
         if flow:
             response_text += "**Flow Patterns:**\n"
@@ -416,7 +419,7 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
             response_text += f"- Max Velocity: {flow.get('max_velocity', 0):.3f} m/s\n"
             response_text += f"- High-Flow Pipes: {flow.get('high_flow_pipe_count', 0)} (top 10%)\n\n"
         
-        # 对称性指标
+        # Symmetry Metrics
         symmetry = features.get('symmetry_metrics', {})
         if symmetry:
             balance_score = symmetry.get('flow_balance_score', 0)
@@ -425,7 +428,7 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
             response_text += f"- Balance Score: {balance_score:.3f} {balance_emoji}\n"
             response_text += f"- Interpretation: {'Well balanced' if balance_score > 0.6 else 'Moderately balanced' if balance_score > 0.4 else 'Unbalanced flow distribution'}\n\n"
         
-        # VLM 分析提示词（适用于高级用户）
+        # VLM Analysis Prompt (for power users)
         response_text += "---\n\n"
         response_text += "### 🤖 VLM Analysis Ready\n"
         response_text += "The generated heatmaps can be analyzed by Vision-Language Models (GPT-4o, Gemini-2.0-Pro) "
@@ -452,27 +455,29 @@ def visual_analyzer(inp_file: str, analysis_type: Optional[str] = "combined"):
 @tool
 def sensor_placer(inp_file: str, num_partitions: Optional[int] = None):
     """
-    传感器布置工具 - 自动确定最佳传感器位置。
-    当用户要求“布置传感器”、“传感器布置”、“监测点”、“传感器优化”或“传感器位置”时，请使用此工具。
+    Sensor Placer Tool - Automatically determines optimal sensor locations.
+    Use this tool when users ask to "place sensors", "sensor placement", "monitoring points", 
+    "sensor optimization", or "sensor locations".
     
-    重要：该工具基于压力敏感性分析自动计算传感器的最佳数量和位置。
-    您无需询问用户传感器计数或任何其他参数——只需使用 inp_file 调用此工具即可。
+    IMPORTANT: This tool automatically calculates the optimal number and location of sensors 
+    based on pressure sensitivity analysis.
+    You do NOT need to ask the user for sensor counts or any other parameters - just call this tool with the inp_file.
     
-    该工具使用压力扰动分析来寻找具有最大检测覆盖范围的节点。
-    每个分区的传感器计数是根据分区大小自动计算的（通常每个区域 2-10 个）。
+    The tool uses pressure perturbation analysis to find nodes with maximum detection coverage.
+    Sensor count per partition is automatically calculated based on partition size (typically 2-10 per zone).
     
-    要求：必须先使用 'network_partitioner' 对网管进行分区。
-    如果不存在分区结果，此工具将返回错误，要求用户先对管网进行分区。
+    Requirement: The network MUST be partitioned using 'network_partitioner' first.
+    If no partition results exist, this tool will return an error asking the user to partition the network first.
     
-    num_partitions：可选。指定用于传感器布置的分区计数。
-    如果未指定，将根据现有的分区结果自动选择。
+    num_partitions: Optional. Specify the partition count to use for sensor placement.
+    If not specified, it will automatically select based on existing partition results.
     """
     try:
         from optimization_utils.sensor_manager import run_sensor_placement_for_agent
         
         result = run_sensor_placement_for_agent(inp_file, num_partitions)
         
-        # 处理不存在分区的情况
+        # Handle case where no partition exists
         if result["status"] == "no_partition":
             return json.dumps({
                 "status": "error",
@@ -483,14 +488,14 @@ def sensor_placer(inp_file: str, num_partitions: Optional[int] = None):
         if result["status"] == "error":
             return json.dumps({"status": "error", "error": result["error"]})
         
-        # 使用增强的 Markdown 格式化成功响应
+        # Format success response with enhanced Markdown
         base_url = "http://127.0.0.1:5000"
         summary = result['summary']
         
         response_text = f"## ✅ {result['msg']}\n\n"
         response_text += "---\n\n"
         
-        # 概览部分
+        # Overview Section
         response_text += "### 📊 Placement Overview\n\n"
         response_text += f"| Metric | Value |\n"
         response_text += f"|--------|-------|\n"
@@ -499,7 +504,7 @@ def sensor_placer(inp_file: str, num_partitions: Optional[int] = None):
         response_text += f"| **Sensitivity Threshold** | {summary['threshold']} |\n"
         response_text += f"| **Optimization Score** | {summary['score']:.4f} |\n\n"
         
-        # 分区详情
+        # Partition Details
         response_text += "### 📈 Partition Details\n\n"
         response_text += "| Partition | Sensors | Resilience | Coverage | Sensor Nodes |\n"
         response_text += "|-----------|---------|------------|----------|---------------|\n"
@@ -513,20 +518,20 @@ def sensor_placer(inp_file: str, num_partitions: Optional[int] = None):
         
         response_text += "\n---\n\n"
         
-        # 输出文件
+        # Output Files
         response_text += "### 📁 Output Files\n\n"
         
-        # 可视化
+        # Visualization
         viz_filename = os.path.basename(result['viz_file'])
         response_text += f"**Visualization:**\n\n"
         response_text += f"![Sensor Placement]({base_url}/sensor_results/{viz_filename})\n\n"
         response_text += f"🖼️ [Download Visualization]({base_url}/sensor_results/{viz_filename})\n\n"
         
-        # CSV 文件
+        # CSV File
         csv_filename = os.path.basename(result['sensor_file'])
         response_text += f"📄 [Download Sensor Placement CSV]({base_url}/sensor_results/{csv_filename})\n\n"
         
-        # 建议
+        # Recommendations
         response_text += "---\n\n"
         response_text += "### 🔧 Recommendations\n\n"
         response_text += "1. **Installation Location** - Install pressure sensors at recommended nodes\n"
@@ -805,14 +810,14 @@ tools_map = {
     "leak_detector_predictor": leak_detector_predictor
 }
 
-# --- 手动代理执行器（对导入错误具有鲁棒性） ---
+# --- Manual Agent Executor (Robust to Import Errors) ---
 
 class SimpleAgent:
     def __init__(self):
-        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
+        self.llm = ChatOpenAI(model="gpt-4o", temperature=0)
         self.llm_with_tools = self.llm.bind_tools(tools)
         
-        # Redis 连接
+        # Redis Connection
         try:
             import redis
             self.redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -892,7 +897,7 @@ class SimpleAgent:
                 return msg
             if msg_type == "tool": return ToolMessage(tool_call_id=data.get("tool_call_id"), content=content)
             if msg_type == "system": return SystemMessage(content=content)
-            return HumanMessage(content=content) # 备用方案
+            return HumanMessage(content=content) # Fallback
         except:
             return HumanMessage(content="")
 
@@ -900,22 +905,22 @@ class SimpleAgent:
         history = []
         if self.redis_client:
             redis_key = f"chat:{session_id}"
-            # 从 Redis 加载
+            # Load from Redis
             raw_msgs = self.redis_client.lrange(redis_key, 0, -1)
             if not raw_msgs:
-                # 使用系统提示词初始化
+                # Initialize with system prompt
                 self.save_message(session_id, self.system_prompt)
                 history = [self.system_prompt]
             else:
                 history = [self._deserialize_msg(m) for m in raw_msgs]
         else:
-            # 备用到内存
+            # Fallback to Memory
             if session_id not in self.memory_sessions:
                 self.memory_sessions[session_id] = [self.system_prompt]
             history = self.memory_sessions[session_id]
         
-        # 自愈：检查损坏的工具调用序列
-        # 如果最后一条消息是带有 tool_calls 的 AIMessage，但后面没有 ToolMessage，则追加一个虚拟错误。
+        # Self-healing: Check for broken tool call sequences
+        # If the last message is an AIMessage with tool_calls but no following ToolMessage, append a dummy error.
         if history and isinstance(history[-1], AIMessage) and history[-1].tool_calls:
             print(f"[{session_id}] Detected broken tool call sequence. Auto-fixing...")
             for tool_call in history[-1].tool_calls:
@@ -929,23 +934,23 @@ class SimpleAgent:
         return history
 
     def summarize_conversation(self, messages: List[Any]) -> str:
-        """根据消息生成对话的简短标题。"""
+        """Generate a short title based on conversation messages."""
         try:
-            # 从最后几条消息中提取文本进行摘要
+            # Extract text from the last few messages for summarization
             text_context = ""
             for msg in messages[:6]:
-                # 跳过系统消息（SystemMessage）
+                # Skip SystemMessage
                 if isinstance(msg, SystemMessage):
                     continue
                 role = "User" if isinstance(msg, HumanMessage) else "Assistant"
                 text_context += f"{role}: {msg.content}\n"
             
-            prompt = f"""请根据以下对话内容，生成一个简短的标题（5-10个字，不要使用引号，直接返回标题文本）。
+            prompt = f"""Please generate a short title (5-10 words, do not use quotes, return only the title text) based on the following conversation.
             
-            对话内容：
+            Conversation:
             {text_context}
             
-            标题："""
+            Title:"""
             
             response = self.llm.invoke([HumanMessage(content=prompt)])
             title = response.content.strip().replace('"', '').replace("'", "")
@@ -959,9 +964,11 @@ class SimpleAgent:
         if self.redis_client:
             redis_key = f"chat:{session_id}"
             self.redis_client.rpush(redis_key, self._serialize_msg(msg))
-            # 可选：7 天后过期
+            # Optional: Expire after 7 days
             self.redis_client.expire(redis_key, 60*60*24*7)
         else:
+            if session_id not in self.memory_sessions:
+                 self.memory_sessions[session_id] = []
             self.memory_sessions[session_id].append(msg)
 
     def invoke(self, input_dict: Dict[str, Any], config: Optional[Dict] = None) -> Dict[str, Any]:
@@ -981,12 +988,12 @@ class SimpleAgent:
         try:
             while turn < max_turns:
                 turn += 1
-                # 1. 调用大模型（LLM）
+                # 1. Call LLM
                 response = self.llm_with_tools.invoke(history)
                 history.append(response)
                 self.save_message(session_id, response)
 
-                # 2. 检查工具调用
+                # 2. Check Tool Calls
                 if response.tool_calls:
                     for tool_call in response.tool_calls:
                         tool_name = tool_call["name"]
@@ -1009,10 +1016,10 @@ class SimpleAgent:
                         history.append(tool_msg)
                         self.save_message(session_id, tool_msg)
                     
-                    # 循环继续到下一次迭代，让大模型处理工具输出
+                    # Continue loop to let LLM process tool outputs
                     continue
                 else:
-                    # 没有工具调用，这是最终回答
+                    # No tool calls, this is the final answer
                     return {"output": response.content}
             
             return {"output": "Max turns reached. Please refine your query."}
@@ -1023,7 +1030,7 @@ class SimpleAgent:
             traceback.print_exc()
             return {"output": f"System Error: {str(e)}. Please reset conversation."}
 
-# 全局实例
+# Global Instance
 chain_with_history = SimpleAgent()
 
 if __name__ == "__main__":
@@ -1034,7 +1041,7 @@ if __name__ == "__main__":
     import time
     session_id = f"manual_test_{int(time.time())}"
     print(f">>> Usage Session ID: {session_id}")
-    # 请求使用 FCM 分区进行传感器布置（自动传感器计数）
+    # Request sensor placement with FCM (auto sensor count)
     res = chain_with_history.invoke(
         {"input": "Place sensors for dataset/Exa7.inp. Use the existing FCM partition with 5 zones."},
         config={"configurable": {"session_id": session_id}}

@@ -1,6 +1,6 @@
 """
-区域优化模块
-供代理调用的优化操作包装函数。
+Zone Optimization Module
+Wrapper functions for optimization operations called by the agent.
 """
 import os
 import json
@@ -11,7 +11,7 @@ from optimization_utils.boundary import find_boundary_pipes, get_boundary_info
 
 
 def compute_md5(file_path):
-    """计算文件的 MD5 哈希值。"""
+    """Compute MD5 hash of a file."""
     hash_md5 = hashlib.md5()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -110,19 +110,19 @@ def analyze_boundary_pipes(inp_file_path, target_k=None):
 def run_zone_optimization(inp_file_path, partition_json_path=None, target_k=None, 
                           pop_size=5, n_gen=20):
     """
-    针对特定的分区计数运行 NSGA-II 优化。
+    Run NSGA-II optimization for a specific partition count.
     
-    参数:
-        inp_file_path: INP 文件的路径
-        partition_json_path: 可选的特定 JSON 路径（如果为 None，则通过 MD5 自动检测）
-        target_k: 要优化的特定分区计数（如果存在多个，则必填）
-        pop_size: NSGA-II 的种群大小
-        n_gen: 迭代次数（代数）
+    Args:
+        inp_file_path: Path to INP file
+        partition_json_path: Optional specific JSON path (if None, auto-detected via MD5)
+        target_k: Specific partition count to optimize (required if multiple exist)
+        pop_size: Population size for NSGA-II
+        n_gen: Number of iterations (generations)
     """
     try:
         from optimization_utils.nsga2 import run_nsga2_optimization
         
-        # 1. 定位/加载分区数据
+        # 1. Locate/Load partition data
         if partition_json_path is None:
             md5 = compute_md5(inp_file_path)
             base_dir = os.path.join(os.getcwd(), 'static', 'partition_results', md5)
@@ -132,28 +132,28 @@ def run_zone_optimization(inp_file_path, partition_json_path=None, target_k=None
             base_dir = os.path.dirname(summary_file)
             
         if not os.path.exists(summary_file):
-             return {"status": "error", "error": "未找到分区摘要文件。请先运行分区。"}
+             return {"status": "error", "error": "Partition summary file not found. Please run partitioning first."}
              
         with open(summary_file, 'r') as f:
             partition_data = json.load(f)
             
-        # 2. 选择目标分区
+        # 2. Select target partition
         available_partitions = list(partition_data.keys())
         
         if target_k is not None:
             target_key = str(target_k)
             if target_key not in partition_data:
-                 return {"status": "error", "error": f"在结果中未找到分区计数 {target_k}。"}
+                 return {"status": "error", "error": f"Partition count {target_k} not found in results."}
         else:
             if len(available_partitions) == 1:
                 target_key = available_partitions[0]
             else:
                 return {
                     "status": "error", 
-                    "error": f"发现多个分区：{available_partitions}。请通过 num_partitions 指定一个。"
+                    "error": f"Multiple partitions found: {available_partitions}. Please specify one via num_partitions."
                 }
                 
-        # 3. 为优化准备数据
+        # 3. Prepare data for optimization
         selected_partition = partition_data[target_key]
         num_comm = int(target_key)
         node_to_comm = selected_partition.get('node_assignments', {})
@@ -162,17 +162,17 @@ def run_zone_optimization(inp_file_path, partition_json_path=None, target_k=None
         boundary_pipes = find_boundary_pipes(wn, node_to_comm)
         
         if not boundary_pipes:
-            return {"status": "error", "error": "此分区未找到边界管道。"}
+            return {"status": "error", "error": "No boundary pipes found for this partition."}
             
-        # 4. 运行 NSGA-II
-        print(f"正在对 {target_key} 个分区进行优化，包含 {len(boundary_pipes)} 条边界管道...")
+        # 4. Run NSGA-II
+        print(f"Optimizing {target_key} partitions, containing {len(boundary_pipes)} boundary pipes...")
         
         result = run_nsga2_optimization(
             wn, boundary_pipes, node_to_comm, num_comm,
             pop_size=pop_size, n_gen=n_gen
         )
         
-        # 5. 保存结果（匹配 partition_X_results.json 的格式）
+        # 5. Save results (match partition_X_results.json format)
         opt_filename = f"optimization_{target_key}_zones.json"
         opt_path = os.path.join(base_dir, opt_filename)
         
@@ -190,7 +190,7 @@ def run_zone_optimization(inp_file_path, partition_json_path=None, target_k=None
             
         return {
             "status": "success",
-            "msg": f"分区 {target_key} 的优化已完成。",
+            "msg": f"Optimization for partition {target_key} complete.",
             "optimization_file": f"static/partition_results/{compute_md5(inp_file_path)}/{opt_filename}",
             "best_objectives": result['best_objectives'],
             "boundary_count": len(boundary_pipes),

@@ -1,6 +1,6 @@
 """
-为网络分区构建相似性矩阵。
-基于 references/cd_main.m 中的 linkNode 方法。
+Build similarity matrix for network partitioning.
+Based on linkNode method in references/cd_main.m.
 """
 import numpy as np
 import networkx as nx
@@ -8,18 +8,18 @@ import networkx as nx
 
 def build_similarity_matrix(wn, avg_pressure):
     """
-    构建相似性矩阵 A，其中 A[i,j] = (avg_pressure[i] + avg_pressure[j]) / 2
-    这遵循了 MATLAB 程序 cd_main.m 中使用 linkNode 的方法。
+    Build similarity matrix A, where A[i,j] = (avg_pressure[i] + avg_pressure[j]) / 2
+    This follows the method using linkNode in MATLAB program cd_main.m.
     
-    参数:
-        wn: WNTR 供水管网模型
-        avg_pressure: 每个节点的平均压力字典
+    Args:
+        wn: WNTR Water Network Model
+        avg_pressure: Dictionary of average pressure for each node
         
-    返回:
-        G: 基于压力相似性带有边权重的 NetworkX 图
-        node_list: 节点名称列表
+    Returns:
+        G: NetworkX graph with edge weights based on pressure similarity
+        node_list: List of node names
     """
-    # 获取所有节点（包括水池、水库）以确保可视化中的连通性
+    # Get all nodes (including tanks, reservoirs) to ensure connectivity in visualization
     junction_names = list(wn.junction_name_list)
     node_list = list(wn.node_name_list)
     
@@ -30,20 +30,20 @@ def build_similarity_matrix(wn, avg_pressure):
     for node in node_list:
         G.add_node(node)
     
-    # 基于管道/链接添加边（类似于 MATLAB 中的 linkNode）
-    # 对于每个链接，添加一条边，权重为连接节点压力的平均值
+    # Add edges based on pipes/links (similar to linkNode in MATLAB)
+    # For each link, add an edge with weight equal to the average pressure of connected nodes
     for link_name in wn.link_name_list:
         link = wn.get_link(link_name)
         start_node = link.start_node_name
         end_node = link.end_node_name
         
-        # 考虑所有节点之间的边（包括水库/水池）
+        # Consider edges between all nodes (including reservoirs/tanks)
         if start_node in node_list and end_node in node_list:
-            # 计算权重为节点压力的平均值（遵循 MATLAB 模式）
+            # Calculate weight as average of node pressures (following MATLAB pattern)
             if start_node in avg_pressure and end_node in avg_pressure:
                 weight = (avg_pressure[start_node] + avg_pressure[end_node]) / 2
-                # 通过使用绝对值处理负压
-                # 避免零值导致某些算法出错
+                # Handle negative pressures by using absolute values
+                # Avoid zero values causing errors in some algorithms
                 G.add_edge(start_node, end_node, weight=weight)
     
     return G, node_list
@@ -51,19 +51,19 @@ def build_similarity_matrix(wn, avg_pressure):
 
 def create_network_graph(wn, avg_pressure):
     """
-    创建带有位置信息的 NetworkX 图，用于分区。
+    Create NetworkX graph with location information for partitioning.
     
-    参数:
-        wn: WNTR 供水管网模型
-        avg_pressure: 平均压力字典
+    Args:
+        wn: WNTR Water Network Model
+        avg_pressure: Dictionary of average pressure
         
-    返回:
-        G: 带有权重和位置信息的 NetworkX 图
-        pos: 节点位置字典
+    Returns:
+        G: NetworkX graph with weights and location information
+        pos: Dictionary of node positions
     """
     G, node_list = build_similarity_matrix(wn, avg_pressure)
     
-    # 从网络坐标中获取节点位置
+    # Get node positions from network coordinates
     pos = {}
     for node_name in node_list:
         node = wn.get_node(node_name)

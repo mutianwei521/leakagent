@@ -1,38 +1,38 @@
 """
-MM-WDS 框架的视觉感知模块。
+Visual perception module for MM-WDS framework.
 
-该模块实现了第 2.2.3 节中描述的视觉模态 (M_Vis)，
-通过热图生成和视觉-语言模型 (VLM) 集成来实现宏观尺度的空间模式识别。
+This module implements the visual modality (M_Vis) described in Section 2.2.3,
+achieving macro-scale spatial pattern recognition through heatmap generation and Vision-Language Model (VLM) integration.
 """
 import os
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')  # 使用非交互式后端
+matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.collections import LineCollection
 import networkx as nx
 
 
-# 生成的可视化输出目录
+# Directory for generated visual outputs
 VISUAL_OUTPUT_DIR = os.path.join(os.getcwd(), "visual_outputs")
 os.makedirs(VISUAL_OUTPUT_DIR, exist_ok=True)
 
 
 def normalize_values(values, v_min=None, v_max=None):
     """
-    将值归一化到 [0, 1] 范围以便进行颜色映射。
+    Normalize values to [0, 1] range for color mapping.
     
-    实现了论文中的公式 11a：
+    Implements Equation 11a from the paper:
     C(P_i) = cmap((P_i - P_min) / (P_max - P_min))
     
-    参数:
-        values: 要归一化的数组
-        v_min: 可选的最小值（如果为 None 则使用 min(values)）
-        v_max: 可选的最大值（如果为 None 则使用 max(values)）
+    Args:
+        values: Array to normalize
+        v_min: Optional minimum value (if None, use min(values))
+        v_max: Optional maximum value (if None, use max(values))
     
-    返回:
-        归一化到 [0, 1] 范围的值
+    Returns:
+        Normalized values in [0, 1] range
     """
     values = np.array(values)
     if v_min is None:
@@ -48,18 +48,18 @@ def normalize_values(values, v_min=None, v_max=None):
 
 def calculate_link_widths(velocities, w_min=0.5, w_max=5.0):
     """
-    根据流速大小计算链接（管道）宽度。
+    Calculate link (pipe) widths based on flow velocity.
     
-    实现了论文中的公式 11b：
+    Implements Equation 11b from the paper:
     w_ij = w_min + (w_max - w_min) * |v_ij| / max|v_kl|
     
-    参数:
-        velocities: 流速数组
-        w_min: 最小线宽
-        w_max: 最大线宽
+    Args:
+        velocities: Array of flow velocities
+        w_min: Minimum line width
+        w_max: Maximum line width
     
-    返回:
-        线宽数组
+    Returns:
+        Array of line widths
     """
     velocities = np.abs(np.array(velocities))
     v_max = np.max(velocities) if len(velocities) > 0 else 1.0
@@ -73,20 +73,20 @@ def calculate_link_widths(velocities, w_min=0.5, w_max=5.0):
 
 def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distribution Heatmap"):
     """
-    生成供水管网的压力热图可视化。
+    Generate pressure heatmap visualization for water distribution network.
     
-    参数:
-        wn: WNTR WaterNetworkModel 对象
-        results: WNTR 模拟结果
-        save_path: 图表的保存路径（可选）
-        title: 图表标题
+    Args:
+        wn: WNTR WaterNetworkModel object
+        results: WNTR simulation results
+        save_path: Path to save the chart (optional)
+        title: Chart title
     
-    返回:
-        保存的图表路径，如果未保存则返回 None
+    Returns:
+        Path to the saved chart, or None if not saved
     """
     fig, ax = plt.subplots(figsize=(14, 10))
     
-    # 获取节点位置
+    # Get node positions
     pos = {}
     for node_name, node in wn.nodes():
         if hasattr(node, 'coordinates') and node.coordinates is not None:
@@ -94,7 +94,7 @@ def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distr
         else:
             pos[node_name] = (0, 0)
     
-    # 提取平均压力
+    # Extract average pressure
     node_names = list(wn.node_name_list)
     pressures = []
     for node_name in node_names:
@@ -106,14 +106,14 @@ def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distr
     
     pressures = np.array(pressures)
     
-    # 为颜色映射归一化压力（公式 11a）
+    # Normalize pressure for color mapping (Equation 11a)
     p_min, p_max = np.min(pressures), np.max(pressures)
     normalized_pressures = normalize_values(pressures, p_min, p_max)
     
-    # 创建发散颜色映射（RdYlBu - 蓝色代表低压，红色代表高压）
-    cmap = plt.cm.RdYlBu_r  # 反转，使红色代表高压
+    # Create divergent colormap (RdYlBu - blue for low pressure, red for high pressure)
+    cmap = plt.cm.RdYlBu_r  # Reverse so red represents high pressure
     
-    # 先绘制边（背景）
+    # Draw edges first (background)
     G = wn.to_graph()
     edge_positions = []
     for u, v in G.edges():
@@ -124,7 +124,7 @@ def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distr
         lc = LineCollection(edge_positions, colors='gray', linewidths=0.5, alpha=0.5)
         ax.add_collection(lc)
     
-    # 绘制带有压力颜色的节点
+    # Draw nodes with pressure colors
     x_coords = [pos[n][0] for n in node_names if n in pos]
     y_coords = [pos[n][1] for n in node_names if n in pos]
     valid_pressures = [normalized_pressures[i] for i, n in enumerate(node_names) if n in pos]
@@ -132,7 +132,7 @@ def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distr
     scatter = ax.scatter(x_coords, y_coords, c=valid_pressures, cmap=cmap,
                          s=30, alpha=0.8, edgecolors='black', linewidths=0.3)
     
-    # 添加颜色条
+    # Add colorbar
     cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
     cbar.set_label(f'Pressure (m)\n[{p_min:.1f} - {p_max:.1f}]', fontsize=10)
     
@@ -157,22 +157,22 @@ def generate_pressure_heatmap(wn, results, save_path=None, title="Pressure Distr
 
 def generate_flow_visualization(wn, results, save_path=None, title="Flow Distribution Visualization"):
     """
-    生成基于流速线宽的流量可视化。
+    Generate flow visualization based on flow velocity line widths.
     
-    实现公式 11b 以进行链接（管道）宽度缩放。
+    Implements Equation 11b for link (pipe) width scaling.
     
-    参数:
-        wn: WNTR WaterNetworkModel 对象
-        results: WNTR 模拟结果
-        save_path: 图表的保存路径（可选）
-        title: 图表标题
+    Args:
+        wn: WNTR WaterNetworkModel object
+        results: WNTR simulation results
+        save_path: Path to save the chart (optional)
+        title: Chart title
     
-    返回:
-        保存的图表路径
+    Returns:
+        Path to the saved chart
     """
     fig, ax = plt.subplots(figsize=(14, 10))
     
-    # 获取节点位置
+    # Get node positions
     pos = {}
     for node_name, node in wn.nodes():
         if hasattr(node, 'coordinates') and node.coordinates is not None:
@@ -180,7 +180,7 @@ def generate_flow_visualization(wn, results, save_path=None, title="Flow Distrib
         else:
             pos[node_name] = (0, 0)
     
-    # 提取链接（管道）流速和流量
+    # Extract link (pipe) velocity and flowrate
     link_data = []
     for link_name, link in wn.links():
         try:
@@ -206,17 +206,17 @@ def generate_flow_visualization(wn, results, save_path=None, title="Flow Distrib
         velocities = [d['velocity'] for d in link_data]
         widths = calculate_link_widths(velocities, w_min=0.5, w_max=6.0)
         
-        # 为了颜色归一化流速
+        # Normalize velocity for color
         v_norm = normalize_values(velocities)
         cmap = plt.cm.YlOrRd
         
-        # 绘制具有不同宽度和颜色的链接（管道）
+        # Draw links (pipes) with varying widths and colors
         for i, d in enumerate(link_data):
             color = cmap(v_norm[i])
             ax.plot([d['start'][0], d['end'][0]], [d['start'][1], d['end'][1]],
                     color=color, linewidth=widths[i], alpha=0.7, solid_capstyle='round')
             
-            # 为显著流量添加流向箭头
+            # Add flow direction arrows for significant flow
             if d['velocity'] > np.mean(velocities):
                 mid_x = (d['start'][0] + d['end'][0]) / 2
                 mid_y = (d['start'][1] + d['end'][1]) / 2
@@ -227,12 +227,12 @@ def generate_flow_visualization(wn, results, save_path=None, title="Flow Distrib
                 ax.annotate('', xy=(mid_x + dx, mid_y + dy), xytext=(mid_x, mid_y),
                             arrowprops=dict(arrowstyle='->', color='black', lw=0.5))
     
-    # 绘制节点
+    # Draw nodes
     node_x = [pos[n][0] for n in wn.node_name_list if n in pos]
     node_y = [pos[n][1] for n in wn.node_name_list if n in pos]
     ax.scatter(node_x, node_y, c='steelblue', s=20, alpha=0.8, zorder=5)
     
-    # 为流速添加颜色条
+    # Add colorbar for velocity
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, max(velocities) if velocities else 1))
     sm.set_array([])
     cbar = plt.colorbar(sm, ax=ax, shrink=0.8)
@@ -259,20 +259,20 @@ def generate_flow_visualization(wn, results, save_path=None, title="Flow Distrib
 
 def generate_combined_heatmap(wn, results, save_path=None, title="Network State Overview"):
     """
-    生成同时显示压力和流量的组合可视化图形。
+    Generate combined visualization showing both pressure and flow.
     
-    参数:
-        wn: WNTR WaterNetworkModel 对象
-        results: WNTR 模拟结果
-        save_path: 图表的保存路径（可选）
-        title: 图表标题
+    Args:
+        wn: WNTR WaterNetworkModel object
+        results: WNTR simulation results
+        save_path: Path to save the chart (optional)
+        title: Chart title
     
-    返回:
-        保存的图表路径
+    Returns:
+        Path to the saved chart
     """
     fig, axes = plt.subplots(1, 2, figsize=(20, 10))
     
-    # 获取节点位置
+    # Get node positions
     pos = {}
     for node_name, node in wn.nodes():
         if hasattr(node, 'coordinates') and node.coordinates is not None:
@@ -282,7 +282,7 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
     
     G = wn.to_graph()
     
-    # --- 左面板：压力热图 ---
+    # --- Left Panel: Pressure Heatmap ---
     ax1 = axes[0]
     
     node_names = list(wn.node_name_list)
@@ -298,7 +298,7 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
     p_min, p_max = np.min(pressures), np.max(pressures)
     normalized_pressures = normalize_values(pressures, p_min, p_max)
     
-    # 绘制边
+    # Draw edges
     edge_positions = []
     for u, v in G.edges():
         if u in pos and v in pos:
@@ -307,7 +307,7 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
         lc = LineCollection(edge_positions, colors='gray', linewidths=0.5, alpha=0.5)
         ax1.add_collection(lc)
     
-    # 绘制带有压力的节点
+    # Draw nodes with pressure colors
     x_coords = [pos[n][0] for n in node_names if n in pos]
     y_coords = [pos[n][1] for n in node_names if n in pos]
     valid_pressures = [normalized_pressures[i] for i, n in enumerate(node_names) if n in pos]
@@ -321,7 +321,7 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
     ax1.set_aspect('equal')
     ax1.grid(True, alpha=0.3)
     
-    # --- 右面板：流量可视化 ---
+    # --- Right Panel: Flow Visualization ---
     ax2 = axes[1]
     
     link_data = []
@@ -352,7 +352,7 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
             ax2.plot([d['start'][0], d['end'][0]], [d['start'][1], d['end'][1]],
                      color=color, linewidth=widths[i], alpha=0.7, solid_capstyle='round')
     
-    # 绘制节点
+    # Draw nodes
     ax2.scatter(x_coords, y_coords, c='steelblue', s=20, alpha=0.8, zorder=5)
     
     if velocities:
@@ -381,12 +381,12 @@ def generate_combined_heatmap(wn, results, save_path=None, title="Network State 
 
 def get_vlm_prompt_template():
     """
-    返回用于分析管网热图的 VLM 提示词模板。
+    Return VLM prompt template for analyzing network heatmaps.
     
-    这实现了第 2.2.3 节中的 VLM 提示词工程部分。
+    This implements the VLM prompt engineering part of Section 2.2.3.
     
-    返回:
-        用于 VLM 分析的结构化提示词字符串
+    Returns:
+        Structured prompt string for VLM analysis
     """
     return """Analyze this water distribution network heatmap. Identify:
 
@@ -429,17 +429,17 @@ Provide your analysis in the following JSON format:
 
 def extract_visual_features(wn, results):
     """
-    从管网状态中提取定量视觉特征。
+    Extract quantitative visual features from network state.
     
-    这提供了补充 VLM 视觉分析的数值特征，
-    实现了第 2.2.3 节中的视觉特征提取部分。
+    This provides numerical features to complement VLM visual analysis,
+    implementing the visual feature extraction part of Section 2.2.3.
     
-    参数:
-        wn: WNTR WaterNetworkModel 对象
-        results: WNTR 模拟结果
+    Args:
+        wn: WNTR WaterNetworkModel object
+        results: WNTR simulation results
     
-    返回:
-        包含提取的视觉特征的字典
+    Returns:
+        Dictionary containing extracted visual features
     """
     features = {
         'topological_anomalies': {},
@@ -450,8 +450,8 @@ def extract_visual_features(wn, results):
     
     G = wn.to_graph().to_undirected()
     
-    # --- 拓扑异常 ---
-    # 寻找关节点（桥接点）
+    # --- Topological Anomalies ---
+    # Find articulation points (bridge nodes)
     try:
         articulation_points = list(nx.articulation_points(G))
         features['topological_anomalies']['bridge_nodes'] = articulation_points
@@ -460,12 +460,12 @@ def extract_visual_features(wn, results):
         features['topological_anomalies']['bridge_nodes'] = []
         features['topological_anomalies']['bridge_count'] = 0
     
-    # 寻找死端节点（度为 1）
+    # Find dead-end nodes (degree 1)
     dead_ends = [n for n in G.nodes() if G.degree(n) == 1]
     features['topological_anomalies']['dead_end_nodes'] = dead_ends
     features['topological_anomalies']['dead_end_count'] = len(dead_ends)
     
-    # --- 压力模式 ---
+    # --- Pressure Patterns ---
     pressures = []
     for node_name in wn.node_name_list:
         try:
@@ -482,13 +482,13 @@ def extract_visual_features(wn, results):
         features['pressure_patterns']['max'] = float(np.max(pressures))
         features['pressure_patterns']['range'] = float(np.max(pressures) - np.min(pressures))
         
-        # 变异系数（衡量均匀性）
+        # Coefficient of variation (measure of uniformity)
         if np.mean(pressures) > 0:
             features['pressure_patterns']['cv'] = float(np.std(pressures) / np.mean(pressures))
         else:
             features['pressure_patterns']['cv'] = 0.0
     
-    # --- 流量模式 ---
+    # --- Flow Patterns ---
     velocities = []
     for link_name in wn.link_name_list:
         try:
@@ -503,41 +503,41 @@ def extract_visual_features(wn, results):
         features['flow_patterns']['max_velocity'] = float(np.max(velocities))
         features['flow_patterns']['velocity_std'] = float(np.std(velocities))
         
-        # 识别高流量管道（前 10%）
+        # Identify high flow pipes (top 10%)
         threshold = np.percentile(velocities, 90)
         high_flow_count = np.sum(velocities > threshold)
         features['flow_patterns']['high_flow_pipe_count'] = int(high_flow_count)
         features['flow_patterns']['high_flow_threshold'] = float(threshold)
     
-    # --- 对称性指标 ---
-    # 使用基尼系数计算流量平衡
+    # --- Symmetry Metrics ---
+    # Calculate flow balance using Gini coefficient
     if velocities is not None and len(velocities) > 0:
         sorted_v = np.sort(velocities)
         n = len(sorted_v)
         cumsum = np.cumsum(sorted_v)
         gini = (2 * np.sum((np.arange(1, n+1) * sorted_v))) / (n * np.sum(sorted_v)) - (n + 1) / n
         features['symmetry_metrics']['flow_gini_coefficient'] = float(abs(gini))
-        features['symmetry_metrics']['flow_balance_score'] = float(1 - abs(gini))  # 1 = 完美平衡
+        features['symmetry_metrics']['flow_balance_score'] = float(1 - abs(gini))  # 1 = Perfect balance
     
     return features
 
 
 def analyze_network_visually(inp_file_path, output_dir=None):
     """
-    供水管网的完整视觉分析流水线。
+    Complete visual analysis pipeline for water distribution network.
     
-    这是视觉感知模块的主入口点，
-    实现了第 2.2.3 节中描述的完整工作流。
+    This is the main entry point for the visual perception module,
+    implementing the full workflow described in Section 2.2.3.
     
-    参数:
-        inp_file_path: EPANET .inp 文件的路径
-        output_dir: 输出文件的目录（可选）
+    Args:
+        inp_file_path: Path to EPANET .inp file
+        output_dir: Directory for output files (optional)
     
-    返回:
-        包含以下内容的字典：
-        - 'heatmap_paths': 生成的热图图像路径
-        - 'visual_features': 提取的定量特征
-        - 'vlm_prompt': 用于 VLM 分析的提示词模板
+    Returns:
+        Dictionary containing:
+        - 'heatmap_paths': Paths to generated heatmap images
+        - 'visual_features': Extracted quantitative features
+        - 'vlm_prompt': Prompt template used for VLM analysis
     """
     import wntr
     
@@ -545,15 +545,15 @@ def analyze_network_visually(inp_file_path, output_dir=None):
         output_dir = VISUAL_OUTPUT_DIR
     os.makedirs(output_dir, exist_ok=True)
     
-    # 加载管网并运行模拟
+    # Load network and run simulation
     wn = wntr.network.WaterNetworkModel(inp_file_path)
     sim = wntr.sim.EpanetSimulator(wn)
     results = sim.run_sim()
     
-    # 从输入文件生成基础文件名
+    # Generate base filename from input file
     base_name = os.path.splitext(os.path.basename(inp_file_path))[0]
     
-    # 生成可视化
+    # Generate visualizations
     heatmap_paths = {}
     
     pressure_path = os.path.join(output_dir, f'{base_name}_pressure_heatmap.png')
@@ -568,10 +568,10 @@ def analyze_network_visually(inp_file_path, output_dir=None):
     heatmap_paths['combined'] = generate_combined_heatmap(wn, results, combined_path,
                                                           f'{base_name} - Network State Overview')
     
-    # 提取视觉特征
+    # Extract visual features
     visual_features = extract_visual_features(wn, results)
     
-    # 获取 VLM 提示词
+    # Get VLM prompt
     vlm_prompt = get_vlm_prompt_template()
     
     return {
@@ -584,14 +584,14 @@ def analyze_network_visually(inp_file_path, output_dir=None):
     }
 
 
-# 示例用法
+# Example Usage
 if __name__ == "__main__":
     import sys
     
     if len(sys.argv) > 1:
         inp_path = sys.argv[1]
     else:
-        # 默认测试文件
+        # Default test file
         inp_path = "Exa7.inp"
     
     if os.path.exists(inp_path):

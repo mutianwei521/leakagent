@@ -1,5 +1,5 @@
 """
-网络分区结果的可视化工具函数。
+Visualization utility functions for network partitioning results.
 """
 import os
 import numpy as np
@@ -10,7 +10,7 @@ import matplotlib.colors as mcolors
 
 
 def get_distinct_colors(n):
-    """为社区生成 n 种不同的颜色。"""
+    """Generate n distinct colors for communities."""
     if n <= 10:
         colors = list(mcolors.TABLEAU_COLORS.values())[:n]
     else:
@@ -21,24 +21,24 @@ def get_distinct_colors(n):
 
 def plot_partition(G, pos, node_to_community, num_communities, save_path):
     """
-    绘制网络分区图并保存到带有图例的文件中。
+    Plot network partition and save to file with legend.
 
-    参数:
-        G: NetworkX 图
-        pos: 节点位置字典
-        node_to_community: 映射节点名称到社区 ID 的字典
-        num_communities: 此分区中的社区数量
-        save_path: 文件保存路径
+    Args:
+        G: NetworkX graph
+        pos: Dictionary of node positions
+        node_to_community: Dictionary mapping node names to community IDs
+        num_communities: Number of communities in this partition
+        save_path: File save path
     """
     import networkx as nx
     from matplotlib.lines import Line2D
 
     fig, ax = plt.subplots(figsize=(14, 10))
 
-    # 获取社区的不同颜色
+    # Get distinct colors for communities
     colors = get_distinct_colors(num_communities)
 
-    # 按社区对节点进行分组
+    # Group nodes by community
     community_nodes = {}
     for node in G.nodes():
         comm_id = node_to_community.get(node, 0)
@@ -46,17 +46,17 @@ def plot_partition(G, pos, node_to_community, num_communities, save_path):
             community_nodes[comm_id] = []
         community_nodes[comm_id].append(node)
 
-    # 绘制边
+    # Draw edges
     nx.draw_networkx_edges(G, pos, ax=ax, alpha=0.3, edge_color='gray')
 
-    # 按社区绘制节点并创建图例句柄
+    # Draw nodes and create legend handles by community
     legend_handles = []
     for comm_id in sorted(community_nodes.keys()):
         nodes = community_nodes[comm_id]
         color = colors[comm_id % len(colors)]
         nx.draw_networkx_nodes(G, pos, ax=ax, nodelist=nodes,
                                node_color=[color], node_size=30, alpha=0.8)
-        # 创建图例句柄
+        # Create legend handle
         handle = Line2D([0], [0], marker='o', color='w', markerfacecolor=color,
                         markersize=8, label=f'Partition {comm_id + 1}')
         legend_handles.append(handle)
@@ -64,7 +64,7 @@ def plot_partition(G, pos, node_to_community, num_communities, save_path):
     ax.set_title(f'Network Partition: {num_communities} Communities', fontsize=14)
     ax.axis('off')
 
-    # 添加图例（根据社区数量调整列数）
+    # Add legend (adjust columns based on number of communities)
     ncol = min(4, max(1, num_communities // 10 + 1))
     ax.legend(handles=legend_handles, loc='upper left', bbox_to_anchor=(1.02, 1),
               fontsize=8, ncol=ncol, framealpha=0.9)
@@ -76,13 +76,13 @@ def plot_partition(G, pos, node_to_community, num_communities, save_path):
 
 def save_all_partitions_plots(G, pos, unique_partitions, output_dir='partition_plots'):
     """
-    保存所有唯一分区的可视化图形。
+    Save visualization plots for all unique partitions.
     
-    参数:
-        G: NetworkX 图
-        pos: 节点位置字典
-        unique_partitions: {社区数量: {'node_to_community': 字典, 'resolution': 浮点数}} 的字典
-        output_dir: 保存图形的目录
+    Args:
+        G: NetworkX graph
+        pos: Dictionary of node positions
+        unique_partitions: Dictionary {num_communities: {'node_to_community': dict, 'resolution': float}}
+        output_dir: Directory to save plots
     """
     os.makedirs(output_dir, exist_ok=True)
     

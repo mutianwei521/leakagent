@@ -3,7 +3,7 @@ import glob
 
 def cleanup():
     """
-    清理临时仿真文件（.inp, .rpt, .bin）。
+    Clean up temporary simulation files (.inp, .rpt, .bin).
     """
     patterns = ['sim_*.inp', 'sim_*.rpt', 'sim_*.bin']
     count = 0
@@ -14,8 +14,8 @@ def cleanup():
                 os.remove(f)
                 count += 1
             except Exception as e:
-                print(f"无法移除文件 {f}: {e}")
-    print(f"清理了 {count} 个临时文件。")
+                print(f"Cannot remove file {f}: {e}")
+    print(f"Cleaned up {count} temporary files.")
 
 if __name__ == '__main__':
     cleanup()

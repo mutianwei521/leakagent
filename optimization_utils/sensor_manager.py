@@ -10,7 +10,7 @@ import hashlib
 from datetime import datetime
 from itertools import combinations
 
-# 设置日志记录器
+# Set up logger
 logger = logging.getLogger("SensorManager")
 logger.setLevel(logging.INFO)
 if not logger.handlers:
@@ -28,24 +28,24 @@ def compute_md5(file_path):
 
 def get_partition_summary_path(inp_file):
     """
-    确定分区摘要文件的路径。
-    优先选择最近修改的结果（FCM 或 Louvain）。
+    Determine partition summary file path.
+    Prioritize recently modified results (FCM or Louvain).
     """
     candidates = []
 
-    # 1. 检查 FCM 结果（在当前目录 partition_results 中）
+    # 1. Check FCM results (in current directory partition_results)
     fcm_path = os.path.join("partition_results", "fcm_partition_summary.json")
     if os.path.exists(fcm_path):
         candidates.append((fcm_path, "FCM", os.path.getmtime(fcm_path)))
     
-    # 2. 检查 Louvain 结果（在 static/partition_results/{md5} 中）
+    # 2. Check Louvain results (in static/partition_results/{md5})
     if os.path.exists(inp_file):
         md5 = compute_md5(inp_file)
         louvain_path = os.path.join("static", "partition_results", md5, "partition_summary.json")
         if os.path.exists(louvain_path):
             candidates.append((louvain_path, "Louvain", os.path.getmtime(louvain_path)))
             
-    # 按修改时间降序排列（最新优先）
+    # Sort by modification time descending (latest first)
     candidates.sort(key=lambda x: x[2], reverse=True)
     
     if candidates:
@@ -53,7 +53,7 @@ def get_partition_summary_path(inp_file):
         logger.info(f"Selected partition set: {fastest[1]} (modified {datetime.fromtimestamp(fastest[2])})")
         return fastest[0], fastest[1]
 
-    # 3. 检查通用默认值（旧版备选）
+    # 3. Check generic default (legacy fallback)
     generic_path = os.path.join("partition_results", "partition_summary.json")
     if os.path.exists(generic_path):
         return generic_path, "Legacy"
@@ -69,29 +69,29 @@ def load_partition_results(partition_summary_path, num_partitions=None):
     available_partitions = sorted([int(k) for k in summary.keys()])
     
     if num_partitions is None:
-        # 默认策略：选择 5，或第一个大于 1 的可用分区
+        # Default strategy: Select 5, or the first available partition > 1
         for n in [5, 4, 3, 2] + available_partitions:
             if n in available_partitions:
                 num_partitions = n
                 break
     
     if num_partitions not in available_partitions:
-        # 备选到最近的数值
+        # Fallback to nearest value
         if available_partitions:
             num_partitions = available_partitions[0]
         else:
             raise ValueError("No partitions found in summary file.")
             
     partition_data = summary[str(num_partitions)]
-    # 处理不同格式（FCM 与 Louvain）
+    # Handle different formats (FCM vs Louvain)
     if 'node_assignments' in partition_data:
         node_assignments = partition_data['node_assignments']
     elif 'node_to_community' in partition_data:
         node_assignments = partition_data['node_to_community']
     else:
-        # 尝试推断
+        # Try to infer
         keys = list(partition_data.keys())
-        # 如果键看起来像节点，值看起来像整数
+        # If keys look like nodes and values look like integers
         if keys and isinstance(partition_data[keys[0]], int):
              node_assignments = partition_data
         else:
@@ -106,7 +106,7 @@ def load_partition_results(partition_summary_path, num_partitions=None):
     return partitions, num_partitions
 
 def compute_pressure_sensitivity_matrix(wn, partitions, demand_ratio=0.20):
-    # （改编自 wds_sensor_main.py）
+    # (Adapted from wds_sensor_main.py)
     all_nodes = []
     for nodes in partitions.values():
         all_nodes.extend(nodes)
@@ -119,7 +119,7 @@ def compute_pressure_sensitivity_matrix(wn, partitions, demand_ratio=0.20):
     base_results = sim.run_sim()
     base_pressure = base_results.node['pressure'].loc[:, valid_nodes].values
     
-    # 计算 delta
+    # Calculate delta
     total_demand = 0
     for name in valid_nodes:
         total_demand += base_results.node['demand'].loc[:, name].sum()
@@ -136,7 +136,7 @@ def compute_pressure_sensitivity_matrix(wn, partitions, demand_ratio=0.20):
         for j, ts in enumerate(node.demand_timeseries_list):
             original_demands[j] = ts.base_value
             
-        # 扰动
+        # Perturbation
         for j, ts in enumerate(node.demand_timeseries_list):
             orig = original_demands[j]
             try:
@@ -163,7 +163,7 @@ def compute_pressure_sensitivity_matrix(wn, partitions, demand_ratio=0.20):
         except Exception as e:
             logger.warning(f"Simulation failed for node {perturb_node}: {e}")
             
-        # 恢复
+        # Restore
         for j, ts in enumerate(node.demand_timeseries_list):
              try:
                 ts.base_value = float(original_demands[j]) if original_demands[j] is not None else 0.0
@@ -207,7 +207,7 @@ def select_sensors_by_partition(sensitivity_data, threshold=0.5, min_sensor_rati
         if len(partition_indices) < 2:
             continue
             
-        # 影响力得分
+        # Influence score
         influence_scores = {}
         for node_name in partition_nodes:
              if node_name not in node_to_index: continue
@@ -226,7 +226,7 @@ def select_sensors_by_partition(sensitivity_data, threshold=0.5, min_sensor_rati
         selected_sensors[partition_id] = []
         uncovered_indices = set(partition_indices)
         
-        # 第一阶段：覆盖范围
+        # Phase 1: Coverage
         while (uncovered_indices and len(selected_sensors[partition_id]) < max_sensors and 
                len(uncovered_indices) / len(partition_indices) > (1 - target_coverage)):
             
@@ -254,7 +254,7 @@ def select_sensors_by_partition(sensitivity_data, threshold=0.5, min_sensor_rati
             covered = [idx for idx in uncovered_indices if sensitivity_matrix[sensor_idx, idx] > threshold]
             for idx in covered: uncovered_indices.discard(idx)
             
-        # 第二阶段：多样性/最小数量
+        # Phase 2: Diversity/Minimum count
         while len(selected_sensors[partition_id]) < min_sensors:
             best_sensor = None
             max_diversity = 0
@@ -344,7 +344,7 @@ def save_and_visualize(solution, wn, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # 1. 保存 CSV
+    # 1. Save CSV
     results_data = []
     sensor_id = 1
     for partition_id, sensors in solution['sensors'].items():
@@ -362,9 +362,9 @@ def save_and_visualize(solution, wn, output_dir):
     csv_file = os.path.join(output_dir, f'sensor_placement_{timestamp}.csv')
     pd.DataFrame(results_data).to_csv(csv_file, index=False)
     
-    # 2. 可视化
+    # 2. Visualize
     plt.figure(figsize=(14, 10))
-    G = nx.Graph() # 简单图
+    G = nx.Graph() # Simple graph
     G_orig = wn.to_graph()
     for u,v in G_orig.edges():
         if u!=v: G.add_edge(u,v)
@@ -398,7 +398,7 @@ def save_and_visualize(solution, wn, output_dir):
 
 def run_sensor_placement_for_agent(inp_file, num_partitions=None):
     try:
-        # 1. 加载分区
+        # 1. Load partitions
         summary_path, source_type = get_partition_summary_path(inp_file)
         if not summary_path:
             return {"status": "error", "error": "Partition results not found. Please run partitioning first."}
@@ -406,21 +406,21 @@ def run_sensor_placement_for_agent(inp_file, num_partitions=None):
         partitions, used_num_partitions = load_partition_results(summary_path, num_partitions)
         logger.info(f"Loaded {len(partitions)} partitions from {source_type} ({summary_path})")
         
-        # 2. 加载网络
+        # 2. Load network
         wn = wntr.network.WaterNetworkModel(inp_file)
         
-        # 3. 计算敏感性
+        # 3. Calculate sensitivity
         sensitivity_data = compute_pressure_sensitivity_matrix(wn, partitions)
         
-        # 4. 优化
+        # 4. Optimize
         solution = optimize_sensor_placement(sensitivity_data)
         if not solution:
             return {"status": "error", "error": "Optimization failed to find a valid solution."}
             
-        # 5. 保存并可视化
+        # 5. Save and visualize
         csv_file, viz_file = save_and_visualize(solution, wn, "sensor_results")
         
-        # 6. 格式化统计信息
+        # 6. Format statistics
         partition_details = {}
         for pid, sensors in solution['sensors'].items():
             partition_details[str(pid)] = {
@@ -442,8 +442,8 @@ def run_sensor_placement_for_agent(inp_file, num_partitions=None):
                 "score": solution['score'],
                 "partition_details": partition_details
             },
-            "avg_resilience": solution['score'], # 大约值
-            "sensor_file": csv_file,  # 匹配代理（Agent）的键名
+            "avg_resilience": solution['score'], # Approximate value
+            "sensor_file": csv_file,  # Match Agent key name
             "viz_file": viz_file,
         }
         
