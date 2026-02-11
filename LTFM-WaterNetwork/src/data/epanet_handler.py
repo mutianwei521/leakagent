@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-EPANET管网模型处理模块
-处理WNTR库的管网导入、水力计算、压力数据获取功能
+EPANET Network Model Handler Module
+Handles network import, hydraulic simulation, and pressure data acquisition using WNTR library
 """
 
 import numpy as np
@@ -15,14 +15,14 @@ warnings.filterwarnings('ignore')
 
 
 class EPANETHandler:
-    """EPANET管网模型处理器"""
+    """EPANET Network Model Handler"""
     
     def __init__(self, inp_file: str):
         """
-        初始化EPANET处理器
+        Initialize EPANET Handler
         
         Args:
-            inp_file: EPANET输入文件路径
+            inp_file: EPANET input file path
         """
         self.inp_file = inp_file
         self.wn = None
@@ -33,28 +33,28 @@ class EPANETHandler:
         
     def load_network(self) -> bool:
         """
-        加载EPANET网络模型
+        Load EPANET network model
         
         Returns:
-            bool: 加载是否成功
+            bool: Whether loading was successful
         """
         try:
             self.wn = wntr.network.WaterNetworkModel(self.inp_file)
             self.node_names = list(self.wn.junction_name_list)
             self.pipe_names = list(self.wn.pipe_name_list)
             
-            # 构建邻接矩阵
+            # Build adjacency matrix
             self._build_adjacency_matrix()
             
-            logger.info(f"成功加载网络: {len(self.node_names)}个节点, {len(self.pipe_names)}条管道")
+            logger.info(f"Successfully loaded network: {len(self.node_names)} nodes, {len(self.pipe_names)} pipes")
             return True
             
         except Exception as e:
-            logger.error(f"加载网络失败: {e}")
+            logger.error(f"Failed to load network: {e}")
             return False
     
     def _build_adjacency_matrix(self):
-        """构建网络邻接矩阵"""
+        """Build network adjacency matrix"""
         n_nodes = len(self.node_names)
         self.adjacency_matrix = np.zeros((n_nodes, n_nodes))
         
@@ -69,67 +69,67 @@ class EPANETHandler:
                 i = node_to_idx[start_node]
                 j = node_to_idx[end_node]
                 self.adjacency_matrix[i, j] = 1
-                self.adjacency_matrix[j, i] = 1  # 无向图
+                self.adjacency_matrix[j, i] = 1  # Undirected graph
     
     def run_hydraulic_simulation(self, duration_hours: int = 24, 
                                 time_step_hours: int = 1) -> bool:
         """
-        运行水力计算
+        Run hydraulic simulation
         
         Args:
-            duration_hours: 模拟持续时间（小时）
-            time_step_hours: 时间步长（小时）
+            duration_hours: Simulation duration (hours)
+            time_step_hours: Time step (hours)
             
         Returns:
-            bool: 计算是否成功
+            bool: Whether simulation was successful
         """
         try:
-            # 设置模拟参数
-            self.wn.options.time.duration = duration_hours * 3600  # 转换为秒
+            # Set simulation parameters
+            self.wn.options.time.duration = duration_hours * 3600  # Convert to seconds
             self.wn.options.time.hydraulic_timestep = time_step_hours * 3600
             self.wn.options.time.report_timestep = time_step_hours * 3600
             
-            # 运行模拟
+            # Run simulation
             sim = wntr.sim.EpanetSimulator(self.wn)
             self.results = sim.run_sim()
             
-            logger.info(f"水力计算完成: {duration_hours}小时模拟")
+            logger.info(f"Hydraulic simulation completed: {duration_hours} hours simulation")
             return True
             
         except Exception as e:
-            logger.error(f"水力计算失败: {e}")
+            logger.error(f"Hydraulic simulation failed: {e}")
             return False
     
     def get_pressure_data(self) -> pd.DataFrame:
         """
-        获取节点压力时序数据
+        Get node pressure time series data
         
         Returns:
-            pd.DataFrame: 压力数据，行为时间，列为节点
+            pd.DataFrame: Pressure data, rows are time, columns are nodes
         """
         if self.results is None:
-            logger.error("未找到计算结果，请先运行水力计算")
+            logger.error("Simulation results not found, please run hydraulic simulation first")
             return pd.DataFrame()
         
         try:
             pressure_data = self.results.node['pressure']
-            # 只保留junction节点的压力数据
+            # Only keep pressure data for junction nodes
             junction_pressure = pressure_data[self.node_names]
             return junction_pressure
             
         except Exception as e:
-            logger.error(f"获取压力数据失败: {e}")
+            logger.error(f"Failed to get pressure data: {e}")
             return pd.DataFrame()
     
     def get_flow_data(self) -> pd.DataFrame:
         """
-        获取管道流量时序数据
+        Get pipe flow time series data
         
         Returns:
-            pd.DataFrame: 流量数据，行为时间，列为管道
+            pd.DataFrame: Flow data, rows are time, columns are pipes
         """
         if self.results is None:
-            logger.error("未找到计算结果，请先运行水力计算")
+            logger.error("Simulation results not found, please run hydraulic simulation first")
             return pd.DataFrame()
         
         try:
@@ -138,15 +138,15 @@ class EPANETHandler:
             return pipe_flow
             
         except Exception as e:
-            logger.error(f"获取流量数据失败: {e}")
+            logger.error(f"Failed to get flow data: {e}")
             return pd.DataFrame()
     
     def get_total_network_demand(self) -> float:
         """
-        计算整个管网的总需水量
+        Calculate total network demand
 
         Returns:
-            float: 总需水量
+            float: Total demand
         """
         try:
             total_demand = 0.0
@@ -155,64 +155,64 @@ class EPANETHandler:
                 if junction.demand_timeseries_list:
                     total_demand += abs(junction.demand_timeseries_list[0].base_value)
 
-            logger.debug(f"管网总需水量: {total_demand:.3f}")
+            logger.debug(f"Total network demand: {total_demand:.3f}")
             return total_demand
 
         except Exception as e:
-            logger.error(f"计算总需水量失败: {e}")
+            logger.error(f"Failed to calculate total demand: {e}")
             return 0.0
 
     def modify_node_demand(self, node_name: str, demand_ratio: float = 0.2) -> bool:
         """
-        修改节点需水量
+        Modify node demand
 
         Args:
-            node_name: 节点名称
-            demand_ratio: 需水量比例（相对于原始值）
+            node_name: Node name
+            demand_ratio: Demand ratio (relative to original value)
 
         Returns:
-            bool: 修改是否成功
+            bool: Whether modification was successful
         """
         try:
             if node_name not in self.node_names:
-                logger.error(f"节点 {node_name} 不存在")
+                logger.error(f"Node {node_name} does not exist")
                 return False
 
             junction = self.wn.get_node(node_name)
             original_demand = junction.demand_timeseries_list[0].base_value
 
-            # 如果原始需水量为0，则使用整个管网总水量的3%
-            if abs(original_demand) < 1e-6:  # 考虑浮点数精度，使用小阈值判断是否为0
+            # If original demand is 0, use 3% of total network demand
+            if abs(original_demand) < 1e-6:  # Use small threshold for float comparison
                 total_demand = self.get_total_network_demand()
                 new_demand = total_demand * 0.03  # 3%
-                logger.info(f"节点 {node_name} 原始需水量为0，使用管网总水量的3%: {new_demand:.3f}")
+                logger.info(f"Node {node_name} original demand is 0, using 3% of total network demand: {new_demand:.3f}")
             else:
                 new_demand = original_demand * demand_ratio
 
-            # 修改需水量
+            # Modify demand
             junction.demand_timeseries_list[0].base_value = new_demand
 
-            logger.debug(f"节点 {node_name} 需水量从 {original_demand:.3f} 修改为 {new_demand:.3f}")
+            logger.debug(f"Node {node_name} demand modified from {original_demand:.3f} to {new_demand:.3f}")
             return True
 
         except Exception as e:
-            logger.error(f"修改节点需水量失败: {e}")
+            logger.error(f"Failed to modify node demand: {e}")
             return False
     
     def reset_network(self):
-        """重置网络到原始状态"""
+        """Reset network to original state"""
         try:
             self.wn = wntr.network.WaterNetworkModel(self.inp_file)
-            logger.debug("网络已重置到原始状态")
+            logger.debug("Network reset to original state")
         except Exception as e:
-            logger.error(f"重置网络失败: {e}")
+            logger.error(f"Failed to reset network: {e}")
     
     def get_pipe_lengths(self) -> Dict[str, float]:
         """
-        获取管道长度信息
+        Get pipe length information
         
         Returns:
-            Dict[str, float]: 管道名称到长度的映射
+            Dict[str, float]: Mapping from pipe name to length
         """
         pipe_lengths = {}
         try:
@@ -222,24 +222,24 @@ class EPANETHandler:
             return pipe_lengths
             
         except Exception as e:
-            logger.error(f"获取管道长度失败: {e}")
+            logger.error(f"Failed to get pipe lengths: {e}")
             return {}
     
     def get_network_graph(self) -> nx.Graph:
         """
-        获取网络图结构
+        Get network graph structure
         
         Returns:
-            nx.Graph: NetworkX图对象
+            nx.Graph: NetworkX graph object
         """
         try:
             G = nx.Graph()
             
-            # 添加节点
+            # Add nodes
             for node_name in self.node_names:
                 G.add_node(node_name)
             
-            # 添加边（管道）
+            # Add edges (pipes)
             for pipe_name in self.pipe_names:
                 pipe = self.wn.get_link(pipe_name)
                 start_node = pipe.start_node_name
@@ -253,15 +253,15 @@ class EPANETHandler:
             return G
             
         except Exception as e:
-            logger.error(f"构建网络图失败: {e}")
+            logger.error(f"Failed to build network graph: {e}")
             return nx.Graph()
     
     def get_network_info(self) -> Dict:
         """
-        获取网络基本信息
+        Get basic network information
         
         Returns:
-            Dict: 网络信息字典
+            Dict: Network information dictionary
         """
         return {
             'n_nodes': len(self.node_names),

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-NodeLocalizer - 节点级漏损定位深度学习模型
-利用LTFM区域特征 + 灵敏度向量，预测漏损具体节点
+NodeLocalizer - Node-level Leakage Localization Deep Learning Model
+Uses LTFM regional features + sensitivity vectors to predict specific leakage nodes
 
 Two-stage approach:
-  Stage 1: 训练LTFM (全局/区域检测，已完成，参数冻结)
-  Stage 2: 训练NodeLocalizer (节点级定位)
+  Stage 1: Train LTFM (Global/Regional detection, completed, parameters frozen)
+  Stage 2: Train NodeLocalizer (Node-level localization)
 """
 
 import torch
@@ -20,14 +20,14 @@ from typing import Optional
 
 class NodeLocalizer(nn.Module):
     """
-    物理感知多头注意力定位器 (Physics-Informed Multi-Head Attention Localizer)
+    Physics-Informed Multi-Head Attention Localizer
     
-    核心思想: 
-    将漏损定位视为"多视角查询-匹配"问题。
-    1. Multi-Head Attention: 多视角匹配 ("经验判断")。
-    2. Physics Bias: 物理灵敏度约束 ("理论判断")。
+    Core Idea:
+    Treat leakage localization as a "Multi-view Query-Matching" problem.
+    1. Multi-Head Attention: Multi-view matching ("Empirical Judgment").
+    2. Physics Bias: Physical sensitivity constraints ("Theoretical Judgment").
     
-    回归: 移除动态门控，使用稳健的静态物理偏置。
+    Regression: Remove dynamic gating, use robust static physical bias.
     """
     
     def __init__(self, region_dim: int, n_nodes: int, hidden_dim: int = 128,
@@ -42,10 +42,10 @@ class NodeLocalizer(nn.Module):
         
         assert hidden_dim % num_heads == 0, "hidden_dim must be divisible by num_heads"
         
-        # 1. 节点嵌入 (Node Bank)
+        # 1. Node Embedding (Node Bank)
         self.node_embeddings = nn.Parameter(torch.randn(n_nodes, hidden_dim) * 0.02)
         
-        # 2. 物理融合层 (Physics Fusion)
+        # 2. Physics Fusion Layer (Physics Fusion)
         self.key_proj = nn.Sequential(
             nn.Linear(hidden_dim + 1, hidden_dim), 
             nn.LayerNorm(hidden_dim),
@@ -53,7 +53,7 @@ class NodeLocalizer(nn.Module):
             nn.Dropout(dropout)
         )
         
-        # 3. 查询映射层 (Query Projection)
+        # 3. Query Projection Layer (Query Projection)
         self.query_proj = nn.Sequential(
             nn.Linear(region_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -61,11 +61,11 @@ class NodeLocalizer(nn.Module):
             nn.Dropout(dropout)
         )
         
-        # 4. 多头注意力投影
+        # 4. Multi-head Attention Projection
         self.W_q = nn.Linear(hidden_dim, hidden_dim)
         self.W_k = nn.Linear(hidden_dim, hidden_dim)
         
-        # 5. 物理偏置系数 (可学习)
+        # 5. Physics Bias Coefficient (Learnable)
         self.physics_bias_weight = nn.Parameter(torch.tensor(12.0))
         
         self.scale = self.head_dim ** -0.5
@@ -81,16 +81,16 @@ class NodeLocalizer(nn.Module):
         """
         batch_size = region_feature.size(0)
         
-        # A. 构建 Keys
+        # A. Build Keys
         expanded_nodes = self.node_embeddings.unsqueeze(0).expand(batch_size, -1, -1)
         expanded_sens = sensitivity_vector.unsqueeze(-1)
         raw_keys = torch.cat([expanded_nodes, expanded_sens], dim=-1)
         keys = self.key_proj(raw_keys) 
         
-        # B. 构建 Query
+        # B. Build Query
         query = self.query_proj(region_feature).unsqueeze(1)
         
-        # C. 多头注意力 (Attention)
+        # C. Multi-head Attention
         Q = self.W_q(query).view(batch_size, 1, self.num_heads, self.head_dim)
         Q = Q.permute(0, 2, 1, 3) 
         
@@ -100,10 +100,10 @@ class NodeLocalizer(nn.Module):
         attn_scores = torch.matmul(Q, K) * self.scale
         attn_logits = attn_scores.mean(dim=1).squeeze(1) 
         
-        # D. 物理偏置 (Physics Bias)
+        # D. Physics Bias
         physics_bias = torch.log1p(sensitivity_vector) * self.physics_bias_weight
         
-        # 直接相加 (Robust Baseline)
+        # Direct addition (Robust Baseline)
         final_logits = attn_logits + physics_bias
         
         return final_logits

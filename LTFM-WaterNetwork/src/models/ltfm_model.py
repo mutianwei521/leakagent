@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-LTFM模型核心模块
-实现Adaptor层、LTFM层、VT SELECTOR层的完整架构
-基于"Towards Zero-Shot Anomaly Detection and Reasoning with Multimodal Large Language Model"
+LTFM Model Core Module
+Implements Adaptor Layer, LTFM Layer, VT SELECTOR Layer architecture
+Based on "Towards Zero-Shot Anomaly Detection and Reasoning with Multimodal Large Language Model"
 """
 
 import torch
@@ -15,7 +15,7 @@ import math
 
 
 class AdaptorLayer(nn.Module):
-    """增强的适配器层，将Graph2Vec嵌入适配到LTFM输入格式"""
+    """Enhanced Adaptor Layer, adapting Graph2Vec embedding to LTFM input format"""
 
     def __init__(self, input_dim: int, hidden_dim: int, output_dim: int, dropout: float = 0.1):
         """
@@ -35,7 +35,7 @@ class AdaptorLayer(nn.Module):
         output_dim = int(output_dim)
         dropout = float(dropout)
 
-        # 输入投影 - 增强版
+        # Input projection - Enhanced version
         self.input_projection = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
@@ -43,12 +43,12 @@ class AdaptorLayer(nn.Module):
             nn.Dropout(dropout)
         )
 
-        # 多层感知机块 - 增加深度
+        # MLP blocks - Increase depth
         self.mlp_blocks = nn.ModuleList([
             self._make_mlp_block(hidden_dim, dropout) for _ in range(3)
         ])
 
-        # 特征增强模块
+        # Feature enhancer module
         self.feature_enhancer = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim * 2),
             nn.GELU(),
@@ -57,7 +57,7 @@ class AdaptorLayer(nn.Module):
             nn.LayerNorm(hidden_dim)
         )
 
-        # 输出投影 - 增强版
+        # Output projection - Enhanced version
         self.output_projection = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.GELU(),
@@ -66,7 +66,7 @@ class AdaptorLayer(nn.Module):
             nn.LayerNorm(output_dim)
         )
 
-        # 残差连接的投影层（当输入输出维度不同时）
+        # Residual connection projection (when input/output dimensions differ)
         if input_dim != output_dim:
             self.residual_projection = nn.Linear(input_dim, output_dim)
         else:
@@ -76,7 +76,7 @@ class AdaptorLayer(nn.Module):
         self.activation = nn.GELU()
 
     def _make_mlp_block(self, dim: int, dropout: float) -> nn.Module:
-        """创建MLP块"""
+        """Create MLP block"""
         return nn.Sequential(
             nn.Linear(dim, dim),
             nn.LayerNorm(dim),
@@ -86,34 +86,34 @@ class AdaptorLayer(nn.Module):
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        增强的前向传播
+        Enhanced forward propagation
 
         Args:
-            x: 输入张量 [batch_size, input_dim] 或 [batch_size, seq_len, input_dim]
+            x: Input tensor [batch_size, input_dim] or [batch_size, seq_len, input_dim]
 
         Returns:
-            torch.Tensor: 适配后的特征 [batch_size, output_dim] 或 [batch_size, seq_len, output_dim]
+            torch.Tensor: Adapted features [batch_size, output_dim] or [batch_size, seq_len, output_dim]
         """
-        # 保存原始输入用于残差连接
+        # Save original input for residual connection
         residual_input = self.residual_projection(x)
 
-        # 输入投影
+        # Input projection
         x = self.input_projection(x)
 
-        # 多层MLP处理
+        # Multi-layer MLP processing
         for mlp_block in self.mlp_blocks:
             residual = x
             x = mlp_block(x)
-            x = x + residual  # 残差连接
+            x = x + residual  # Residual connection
 
-        # 特征增强
+        # Feature enhancement
         enhanced = self.feature_enhancer(x)
-        x = x + enhanced  # 残差连接
+        x = x + enhanced  # Residual connection
 
-        # 输出投影
+        # Output projection
         x = self.output_projection(x)
 
-        # 全局残差连接（如果维度匹配）
+        # Global residual connection (if dimensions match)
         if x.shape == residual_input.shape:
             x = x + residual_input
 
@@ -121,7 +121,7 @@ class AdaptorLayer(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    """多头注意力机制"""
+    """Multi-head Attention Mechanism"""
     
     def __init__(self, embed_dim: int, num_heads: int, dropout: float = 0.1):
         super(MultiHeadAttention, self).__init__()
@@ -148,31 +148,31 @@ class MultiHeadAttention(nn.Module):
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor,
                 mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
-        前向传播（支持cross-attention，query和key/value可以有不同的seq_len）
+        Forward propagation (Supports cross-attention, query and key/value can have different seq_len)
         
         Args:
-            query: 查询张量 [batch_size, q_len, embed_dim]
-            key: 键张量 [batch_size, kv_len, embed_dim]
-            value: 值张量 [batch_size, kv_len, embed_dim]
-            mask: 注意力掩码
+            query: Query tensor [batch_size, q_len, embed_dim]
+            key: Key tensor [batch_size, kv_len, embed_dim]
+            value: Value tensor [batch_size, kv_len, embed_dim]
+            mask: Attention mask
             
         Returns:
-            torch.Tensor: 注意力输出 [batch_size, q_len, embed_dim]
+            torch.Tensor: Attention output [batch_size, q_len, embed_dim]
         """
         batch_size, q_len, _ = query.shape
         kv_len = key.shape[1]
         
-        # 线性投影
+        # Linear projection
         Q = self.q_proj(query)
         K = self.k_proj(key)
         V = self.v_proj(value)
         
-        # 重塑为多头格式
+        # Reshape to multi-head format
         Q = Q.view(batch_size, q_len, self.num_heads, self.head_dim).transpose(1, 2)
         K = K.view(batch_size, kv_len, self.num_heads, self.head_dim).transpose(1, 2)
         V = V.view(batch_size, kv_len, self.num_heads, self.head_dim).transpose(1, 2)
         
-        # 计算注意力分数
+        # Calculate attention scores
         scores = torch.matmul(Q, K.transpose(-2, -1)) / self.scale
         
         if mask is not None:
@@ -181,32 +181,32 @@ class MultiHeadAttention(nn.Module):
         attn_weights = F.softmax(scores, dim=-1)
         attn_weights = self.dropout(attn_weights)
         
-        # 应用注意力权重
+        # Apply attention weights
         attn_output = torch.matmul(attn_weights, V)
         
-        # 重塑回原始格式
+        # Reshape back to original format
         attn_output = attn_output.transpose(1, 2).contiguous().view(
             batch_size, q_len, self.embed_dim
         )
         
-        # 输出投影
+        # Output projection
         output = self.out_proj(attn_output)
         
         return output
 
 
 class LTFMLayer(nn.Module):
-    """LTFM层：Look-Twice Feature Matching层"""
+    """LTFM Layer: Look-Twice Feature Matching Layer"""
     
     def __init__(self, embed_dim: int, num_heads: int, hidden_dim: int, dropout: float = 0.1):
         """
-        初始化LTFM层
+        Initialize LTFM Layer
 
         Args:
-            embed_dim: 嵌入维度
-            num_heads: 注意力头数
-            hidden_dim: 前馈网络隐藏维度
-            dropout: Dropout率
+            embed_dim: Embedding dimension
+            num_heads: Number of attention heads
+            hidden_dim: Transformer FFN hidden dimension
+            dropout: Dropout rate
         """
         super(LTFMLayer, self).__init__()
 
@@ -216,21 +216,21 @@ class LTFMLayer(nn.Module):
         hidden_dim = int(hidden_dim)
         dropout = float(dropout)
         
-        # 第一次观察：全局注意力
+        # First Look: Global Attention
         self.global_attention = MultiHeadAttention(embed_dim, num_heads, dropout)
         self.global_norm1 = nn.LayerNorm(embed_dim)
         self.global_norm2 = nn.LayerNorm(embed_dim)
         
-        # 第二次观察：局部注意力
+        # Second Look: Local Attention
         self.local_attention = MultiHeadAttention(embed_dim, num_heads, dropout)
         self.local_norm1 = nn.LayerNorm(embed_dim)
         self.local_norm2 = nn.LayerNorm(embed_dim)
         
-        # 特征匹配 - 使用自定义MultiHeadAttention避免PyTorch 2.7兼容性问题
+        # Feature Matching - Use custom MultiHeadAttention to avoid PyTorch 2.7 compatibility issues
         self.feature_matching = MultiHeadAttention(embed_dim, num_heads, dropout)
         self.matching_norm = nn.LayerNorm(embed_dim)
         
-        # 前馈网络
+        # Feed Forward Network
         self.ffn = nn.Sequential(
             nn.Linear(embed_dim, hidden_dim),
             nn.GELU(),
@@ -240,55 +240,55 @@ class LTFMLayer(nn.Module):
         )
         self.ffn_norm = nn.LayerNorm(embed_dim)
         
-        # 融合层
+        # Fusion layer
         self.fusion = nn.Linear(embed_dim * 2, embed_dim)
         self.fusion_norm = nn.LayerNorm(embed_dim)
         
     def forward(self, global_features: torch.Tensor, 
                 local_features: torch.Tensor) -> torch.Tensor:
         """
-        前向传播
+        Forward propagation
         
         Args:
-            global_features: 全局特征 [batch_size, seq_len, embed_dim]
-            local_features: 局部特征 [batch_size, seq_len, embed_dim]
+            global_features: Global features [batch_size, seq_len, embed_dim]
+            local_features: Local features [batch_size, seq_len, embed_dim]
             
         Returns:
-            torch.Tensor: LTFM输出 [batch_size, seq_len, embed_dim]
+            torch.Tensor: LTFM output [batch_size, seq_len, embed_dim]
         """
-        # 第一次观察：全局特征处理
+        # First Look: Global feature processing
         global_attn = self.global_attention(global_features, global_features, global_features)
         global_features = self.global_norm1(global_features + global_attn)
         
         global_ffn = self.ffn(global_features)
         global_features = self.global_norm2(global_features + global_ffn)
         
-        # 第二次观察：局部特征处理
+        # Second Look: Local feature processing
         local_attn = self.local_attention(local_features, local_features, local_features)
         local_features = self.local_norm1(local_features + local_attn)
         
         local_ffn = self.ffn(local_features)
         local_features = self.local_norm2(local_features + local_ffn)
         
-        # 特征匹配：全局和局部特征交互
+        # Feature matching: Global and local feature interaction
         matched_features = self.feature_matching(
             global_features, local_features, local_features
         )
         matched_features = self.matching_norm(global_features + matched_features)
         
-        # 特征融合
+        # Feature fusion
         fused_features = torch.cat([global_features, local_features], dim=-1)
         fused_features = self.fusion(fused_features)
         fused_features = self.fusion_norm(fused_features)
         
-        # 残差连接
+        # Residual connection
         output = matched_features + fused_features
         
         return output
 
 
 class VTSelectorLayer(nn.Module):
-    """改进的VT Selector层：视觉-文本选择器层"""
+    """Improved VT Selector Layer: Visual-Text Selector Layer"""
 
     def __init__(self, embed_dim: int, num_regions: int, dropout: float = 0.1, num_heads: int = 8):
         """
@@ -312,7 +312,7 @@ class VTSelectorLayer(nn.Module):
         self.num_regions = num_regions
         self.num_heads = num_heads
 
-        # 全局特征处理 - 增强版（使用LayerNorm替代BatchNorm以支持batch_size=1）
+        # Global feature processing - Enhanced (Use LayerNorm instead of BatchNorm to support batch_size=1)
         self.global_processor = nn.Sequential(
             nn.Linear(embed_dim, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),
@@ -320,10 +320,10 @@ class VTSelectorLayer(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(embed_dim * 2, embed_dim),
             nn.LayerNorm(embed_dim),
-            nn.Dropout(dropout * 0.5)  # 较小的dropout
+            nn.Dropout(dropout * 0.5)  # Smaller dropout
         )
 
-        # 区域特征处理 - 增强版（使用LayerNorm替代BatchNorm以支持batch_size=1）
+        # Region feature processing - Enhanced (Use LayerNorm instead of BatchNorm to support batch_size=1)
         self.region_processor = nn.Sequential(
             nn.Linear(embed_dim, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),
@@ -331,23 +331,23 @@ class VTSelectorLayer(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(embed_dim * 2, embed_dim),
             nn.LayerNorm(embed_dim),
-            nn.Dropout(dropout * 0.5)  # 较小的dropout
+            nn.Dropout(dropout * 0.5)  # Smaller dropout
         )
 
-        # 多头注意力机制 - 使用自定义MultiHeadAttention避免PyTorch 2.7兼容性问题
+        # Multi-head attention - Use custom MultiHeadAttention to avoid PyTorch 2.7 compatibility issues
         self.multihead_attention = MultiHeadAttention(
             embed_dim, num_heads, dropout
         )
 
-        # 位置编码
+        # Position encoding
         self.position_encoding = nn.Parameter(torch.randn(1, num_regions + 1, embed_dim))
 
-        # 交叉注意力 - 使用自定义MultiHeadAttention
+        # Cross attention - Use custom MultiHeadAttention
         self.cross_attention = MultiHeadAttention(
             embed_dim, num_heads, dropout
         )
 
-        # 特征融合
+        # Feature fusion
         self.feature_fusion = nn.Sequential(
             nn.Linear(embed_dim * 2, embed_dim),
             nn.GELU(),
@@ -355,7 +355,7 @@ class VTSelectorLayer(nn.Module):
             nn.Linear(embed_dim, embed_dim)
         )
 
-        # 简化的分类头 - 全局（使用LayerNorm替代BatchNorm以支持batch_size=1）
+        # Simplified classifier head - Global (Use LayerNorm instead of BatchNorm to support batch_size=1)
         self.global_classifier = nn.Sequential(
             nn.Linear(embed_dim, embed_dim // 2),
             nn.LayerNorm(embed_dim // 2),
@@ -364,7 +364,7 @@ class VTSelectorLayer(nn.Module):
             nn.Linear(embed_dim // 2, 1)
         )
 
-        # 简化的分类头 - 区域（共享权重但有区域特定的偏置）
+        # Simplified classifier head - Region (Shared weights but region-specific bias)
         self.shared_region_classifier = nn.Sequential(
             nn.Linear(embed_dim, embed_dim // 2),
             nn.LayerNorm(embed_dim // 2),
@@ -372,44 +372,44 @@ class VTSelectorLayer(nn.Module):
             nn.Dropout(dropout)
         )
 
-        # 区域特定的最终分类层 - 简化版
+        # Region-specific final classification layers - Simplified
         self.region_final_layers = nn.ModuleList([
             nn.Linear(embed_dim // 2, 1) for _ in range(num_regions)
         ])
 
-        # 输出缩放参数 - 让模型输出更有区分度
+        # Output scaling parameter - Make model output more discriminative
         self.global_output_scale = nn.Parameter(torch.tensor(2.0))
-        self.region_output_scale = nn.Parameter(torch.tensor(3.0))  # 区域输出更大的缩放
+        self.region_output_scale = nn.Parameter(torch.tensor(3.0))  # Larger scale for region output
 
         self.layer_norm = nn.LayerNorm(embed_dim)
         self.dropout = nn.Dropout(dropout)
 
-        # 输入维度适配器（处理增强特征的维度变化）
-        self.input_adapter = nn.Linear(embed_dim, embed_dim)  # 这会在运行时动态调整
+        # Input dimension adapter (Handle dimension change of enhanced features)
+        self.input_adapter = nn.Linear(embed_dim, embed_dim)  # This will be dynamically adjusted at runtime
 
-        # 改进的参数初始化
+        # Improved parameter initialization
         self._init_weights()
 
     def _init_weights(self):
-        """改进的权重初始化"""
+        """Improved weight initialization"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
-                # Xavier初始化
+                # Xavier initialization
                 nn.init.xavier_uniform_(module.weight)
                 if module.bias is not None:
-                    nn.init.constant_(module.bias, 0.1)  # 小的正偏置
+                    nn.init.constant_(module.bias, 0.1)  # Small positive bias
             elif isinstance(module, nn.LayerNorm):
                 nn.init.constant_(module.bias, 0)
                 nn.init.constant_(module.weight, 1.0)
 
-        # 特别初始化分类层 - 让输出有更大的初始方差
+        # Specifically initialize classifier layers - Allow output to have larger initial variance
         for classifier in self.region_final_layers:
-            if hasattr(classifier, '0'):  # Sequential中的Linear层
+            if hasattr(classifier, '0'):  # Linear layer in Sequential
                 linear_layer = classifier[0]
                 nn.init.normal_(linear_layer.weight, mean=0.0, std=0.5)
                 nn.init.uniform_(linear_layer.bias, -0.5, 0.5)
 
-        # 全局分类器初始化
+        # Global classifier initialization
         for module in self.global_classifier.modules():
             if isinstance(module, nn.Linear):
                 nn.init.normal_(module.weight, mean=0.0, std=0.3)
@@ -419,43 +419,43 @@ class VTSelectorLayer(nn.Module):
     def forward(self, global_features: torch.Tensor,
                 region_features: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
         """
-        改进的前向传播
+        Improved forward propagation
 
         Args:
-            global_features: 全局特征 [batch_size, embed_dim]
-            region_features: 区域特征列表，每个元素为 [batch_size, embed_dim]
+            global_features: Global features [batch_size, embed_dim]
+            region_features: List of region features, each element is [batch_size, embed_dim]
 
         Returns:
-            Tuple[torch.Tensor, List[torch.Tensor]]: (全局得分, 区域得分列表)
+            Tuple[torch.Tensor, List[torch.Tensor]]: (Global Score, List of Region Scores)
         """
         batch_size = global_features.shape[0]
 
-        # 1. 处理全局特征
+        # 1. Process global features
         processed_global = self.global_processor(global_features)
 
-        # 2. 处理区域特征
+        # 2. Process region features
         processed_regions = []
         for region_feat in region_features:
             processed_region = self.region_processor(region_feat)
             processed_regions.append(processed_region)
 
-        # 3. 构建序列：[全局特征, 区域特征1, 区域特征2, ...]
+        # 3. Build sequence: [Global feature, Region feature 1, Region feature 2, ...]
         if processed_regions:
-            # 堆叠所有特征
+            # Stack all features
             all_features = torch.stack([processed_global] + processed_regions, dim=1)  # [batch_size, num_regions+1, embed_dim]
 
-            # 添加位置编码
+            # Add position encoding
             seq_len = all_features.shape[1]
             pos_encoding = self.position_encoding[:, :seq_len, :].expand(batch_size, -1, -1)
             all_features = all_features + pos_encoding
 
-            # 4. 自注意力机制 - 让特征之间相互交互
+            # 4. Self-attention mechanism - Allow features to interact with each other
             attended_features = self.multihead_attention(
                 all_features, all_features, all_features
             )
-            attended_features = self.layer_norm(attended_features + all_features)  # 残差连接
+            attended_features = self.layer_norm(attended_features + all_features)  # Residual connection
 
-            # 5. 交叉注意力 - 全局特征作为query，区域特征作为key和value
+            # 5. Cross-attention - Global feature as query, region features as key and value
             global_query = attended_features[:, 0:1, :]  # [batch_size, 1, embed_dim]
             region_kv = attended_features[:, 1:, :]      # [batch_size, num_regions, embed_dim]
 
@@ -464,23 +464,23 @@ class VTSelectorLayer(nn.Module):
                     global_query, region_kv, region_kv
                 )
 
-                # 融合全局和交叉注意力特征
+                # Fuse global and cross-attention features
                 enhanced_global = torch.cat([
-                    attended_features[:, 0, :],  # 原始全局特征
-                    cross_attended.squeeze(1)    # 交叉注意力特征
+                    attended_features[:, 0, :],  # Original global feature
+                    cross_attended.squeeze(1)    # Cross-attention feature
                 ], dim=-1)
                 enhanced_global = self.feature_fusion(enhanced_global)
             else:
                 enhanced_global = attended_features[:, 0, :]
 
-            # 6. 增强区域特征
+            # 6. Enhance region features
             enhanced_regions = []
             for i in range(len(processed_regions)):
                 if i < attended_features.shape[1] - 1:
-                    # 结合原始区域特征和注意力增强特征
+                    # Combine original region feature and attention enhanced feature
                     region_feat = attended_features[:, i + 1, :]
 
-                    # 添加全局上下文
+                    # Add global context
                     global_context = enhanced_global.unsqueeze(1).expand(-1, 1, -1)
                     region_with_context = torch.cat([region_feat.unsqueeze(1), global_context], dim=-1)
                     region_with_context = self.feature_fusion(region_with_context.squeeze(1))
@@ -490,43 +490,43 @@ class VTSelectorLayer(nn.Module):
             enhanced_global = processed_global
             enhanced_regions = []
 
-        # 7. 分类预测 - 应用输出缩放
+        # 7. Classification prediction - Apply output scaling
         global_score = self.global_classifier(enhanced_global)
-        global_score = global_score * self.global_output_scale  # 缩放全局输出
+        global_score = global_score * self.global_output_scale  # Scale global output
 
-        # 8. 区域分类 - 使用共享分类器 + 区域特定层
+        # 8. Region classification - Use shared classifier + region-specific layers
         region_scores = []
         for i, enhanced_region in enumerate(enhanced_regions):
             if i < len(self.region_final_layers):
-                # 共享特征提取
+                # Shared feature extraction
                 shared_features = self.shared_region_classifier(enhanced_region)
                 shared_features = self.dropout(shared_features)
 
-                # 区域特定分类 - 应用输出缩放
+                # Region-specific classification - Apply output scaling
                 region_score = self.region_final_layers[i](shared_features)
-                region_score = region_score * self.region_output_scale  # 缩放区域输出
+                region_score = region_score * self.region_output_scale  # Scale region output
                 region_scores.append(region_score)
 
         return global_score, region_scores
 
 
 class LTFMModel(nn.Module):
-    """完整的LTFM模型"""
+    """Complete LTFM Model"""
 
     def __init__(self, graph2vec_dim: int = 128, embed_dim: int = 256,
                  num_heads: int = 8, num_layers: int = 4, num_regions: int = 5,
                  hidden_dim: int = 512, dropout: float = 0.1):
         """
-        初始化LTFM模型
+        Initialize LTFM Model
 
         Args:
-            graph2vec_dim: Graph2Vec嵌入维度
-            embed_dim: 模型嵌入维度
-            num_heads: 注意力头数
-            num_layers: LTFM层数
-            num_regions: 区域数量
-            hidden_dim: 隐藏层维度
-            dropout: Dropout率
+            graph2vec_dim: Graph2Vec embedding dimension
+            embed_dim: Model embedding dimension
+            num_heads: Number of attention heads
+            num_layers: Number of LTFM layers
+            num_regions: Number of regions
+            hidden_dim: Hidden dimension
+            dropout: Dropout rate
         """
         super(LTFMModel, self).__init__()
 
@@ -542,43 +542,43 @@ class LTFMModel(nn.Module):
         self.embed_dim = embed_dim
         self.num_regions = num_regions
 
-        # Adaptor层
+        # Adaptor Layer
         self.global_adaptor = AdaptorLayer(graph2vec_dim, hidden_dim, embed_dim, dropout)
         self.region_adaptors = nn.ModuleList([
             AdaptorLayer(graph2vec_dim, hidden_dim, embed_dim, dropout)
             for _ in range(num_regions)
         ])
 
-        # LTFM层
+        # LTFM Layer
         self.ltfm_layers = nn.ModuleList([
             LTFMLayer(embed_dim, num_heads, hidden_dim, dropout)
             for _ in range(num_layers)
         ])
 
-        # VT Selector层
+        # VT Selector Layer
         self.vt_selector = VTSelectorLayer(embed_dim, num_regions, dropout, num_heads)
 
-        # 位置编码
+        # Position encoding
         self.pos_encoding = nn.Parameter(torch.randn(1, 1, embed_dim))
 
     def forward(self, global_graph_embedding: torch.Tensor,
                 region_graph_embeddings: List[torch.Tensor],
                 return_features: bool = False):
         """
-        前向传播
+        Forward propagation
 
         Args:
-            global_graph_embedding: 全局图嵌入 [batch_size, graph2vec_dim]
-            region_graph_embeddings: 区域图嵌入列表，每个元素为 [batch_size, graph2vec_dim]
-            return_features: 是否返回中间特征（供NodeLocalizer使用）
+            global_graph_embedding: Global graph embedding [batch_size, graph2vec_dim]
+            region_graph_embeddings: List of region graph embeddings, each element is [batch_size, graph2vec_dim]
+            return_features: Whether to return intermediate features (for NodeLocalizer use)
 
         Returns:
-            如果 return_features=False: (全局异常得分, 区域异常得分列表)
-            如果 return_features=True: (全局异常得分, 区域异常得分列表, 区域特征列表)
+            If return_features=False: (Global anomaly score, List of region anomaly scores)
+            If return_features=True: (Global anomaly score, List of region anomaly scores, List of region features)
         """
         batch_size = global_graph_embedding.shape[0]
 
-        # Adaptor层处理
+        # Adaptor Layer processing
         global_features = self.global_adaptor(global_graph_embedding)  # [batch_size, embed_dim]
 
         region_features = []
@@ -587,33 +587,33 @@ class LTFMModel(nn.Module):
                 region_feat = self.region_adaptors[i](region_embedding)
                 region_features.append(region_feat)
 
-        # 添加序列维度和位置编码
+        # Add sequence dimension and position encoding
         global_features = global_features.unsqueeze(1) + self.pos_encoding  # [batch_size, 1, embed_dim]
         region_features_seq = []
         for region_feat in region_features:
             region_feat_seq = region_feat.unsqueeze(1) + self.pos_encoding
             region_features_seq.append(region_feat_seq)
 
-        # LTFM层处理
+        # LTFM Layer processing
         for ltfm_layer in self.ltfm_layers:
-            # 对每个区域特征与全局特征进行LTFM处理
+            # Apply LTFM processing to each region feature and global feature
             processed_regions = []
             for region_feat_seq in region_features_seq:
                 processed_region = ltfm_layer(global_features, region_feat_seq)
                 processed_regions.append(processed_region)
 
-            # 更新全局特征（使用所有区域特征的平均）
+            # Update global features (use average of all region features)
             if processed_regions:
                 avg_region_features = torch.stack([r.squeeze(1) for r in processed_regions]).mean(0).unsqueeze(1)
                 global_features = ltfm_layer(global_features, avg_region_features)
 
             region_features_seq = processed_regions
 
-        # 移除序列维度
+        # Remove sequence dimension
         global_features = global_features.squeeze(1)  # [batch_size, embed_dim]
         region_features = [r.squeeze(1) for r in region_features_seq]  # List of [batch_size, embed_dim]
 
-        # VT Selector层
+        # VT Selector Layer
         global_score, region_scores = self.vt_selector(global_features, region_features)
 
         if return_features:
@@ -623,13 +623,13 @@ class LTFMModel(nn.Module):
     def focal_loss(self, inputs: torch.Tensor, targets: torch.Tensor,
                    alpha: float = 1.0, gamma: float = 2.0) -> torch.Tensor:
         """
-        Focal Loss实现，用于解决类别不平衡问题
+        Focal Loss implementation, used to address class imbalance
 
         Args:
-            inputs: 预测logits [batch_size, num_classes]
-            targets: 真实标签 [batch_size]
-            alpha: 平衡因子
-            gamma: 聚焦参数
+            inputs: Predicted logits [batch_size, num_classes]
+            targets: True labels [batch_size]
+            alpha: Balancing factor
+            gamma: Focusing parameter
 
         Returns:
             torch.Tensor: Focal loss
@@ -642,90 +642,90 @@ class LTFMModel(nn.Module):
     def compute_loss(self, global_score: torch.Tensor, region_scores: List[torch.Tensor],
                     global_labels: torch.Tensor, region_labels: torch.Tensor) -> torch.Tensor:
         """
-        计算改进的损失函数
+        Calculate improved loss function
 
         Args:
-            global_score: 全局异常得分 [batch_size, 1]
-            region_scores: 区域异常得分列表
-            global_labels: 全局标签 [batch_size] (0表示正常，1表示异常)
-            region_labels: 区域标签 [batch_size] (0表示正常，>0表示异常区域索引)
+            global_score: Global anomaly score [batch_size, 1]
+            region_scores: List of region anomaly scores
+            global_labels: Global labels [batch_size] (0 for normal, 1 for anomaly)
+            region_labels: Region labels [batch_size] (0 for normal, >0 for anomaly region index)
 
         Returns:
-            torch.Tensor: 总损失
+            torch.Tensor: Total loss
         """
-        # 1. 全局异常检测损失 - 使用Focal Loss for binary classification
+        # 1. Global anomaly detection loss - Use Focal Loss for binary classification
         global_labels_binary = (global_labels > 0).float()
-        # 使用squeeze(-1)只压缩最后一维，保持batch维度
+        # Use squeeze(-1) to compress only the last dimension, keeping batch dimension
         global_probs = torch.sigmoid(global_score.squeeze(-1))
         global_bce = F.binary_cross_entropy(global_probs, global_labels_binary, reduction='none')
 
-        # 计算focal weight
+        # Calculate focal weight
         pt = global_labels_binary * global_probs + (1 - global_labels_binary) * (1 - global_probs)
         focal_weight = (1 - pt) ** 2.0  # gamma=2.0
         global_focal_loss = (focal_weight * global_bce).mean()
 
-        # 2. 区域异常定位损失 - 使用加权Focal Loss
+        # 2. Region anomaly localization loss - Use Weighted Focal Loss
         if region_scores:
-            # 将区域得分堆叠
+            # Stack region scores
             region_scores_tensor = torch.cat(region_scores, dim=1)  # [batch_size, num_regions]
 
-            # 添加正常类别（索引0）的得分
+            # Add score for normal class (index 0)
             normal_scores = torch.zeros(region_scores_tensor.shape[0], 1,
                                       device=region_scores_tensor.device)
             all_scores = torch.cat([normal_scores, region_scores_tensor], dim=1)
 
-            # 使用Focal Loss处理区域分类
+            # Use Focal Loss for region classification
             region_focal_loss = self.focal_loss(all_scores, region_labels.long(),
-                                               alpha=2.0, gamma=2.0)  # 增加区域检测权重
+                                               alpha=2.0, gamma=2.0)  # Increase region detection weight
 
-            # 3. 添加区域一致性损失 - 鼓励异常区域有更高的得分
+            # 3. Add region consistency loss - Encourage higher scores for anomalous regions
             consistency_loss = 0.0
             if len(region_scores) > 1:
-                # 计算异常样本的区域得分方差，鼓励异常区域突出
+                # Calculate variance of region scores for anomalous samples, encourage anomalous regions to stand out
                 anomaly_mask = global_labels > 0
                 if anomaly_mask.sum() > 0:
                     anomaly_region_scores = region_scores_tensor[anomaly_mask]
                     if anomaly_region_scores.shape[0] > 0:
-                        # 鼓励异常区域得分的差异性（使用正值损失）
+                        # Encourage diversity in region scores (use positive value loss)
                         region_std = torch.std(anomaly_region_scores, dim=1)
-                        # 使用 1/(std+epsilon) 来鼓励更大的方差，避免负数
+                        # Use 1/(std+epsilon) to encourage larger variance, avoid negative numbers
                         epsilon = 1e-6
                         consistency_loss = 1.0 / (region_std.mean() + epsilon)
         else:
             region_focal_loss = torch.tensor(0.0, device=global_score.device)
             consistency_loss = torch.tensor(0.0, device=global_score.device)
 
-        # 4. 添加区域对比损失 - 强制区域特征差异化
+        # 4. Add region contrastive loss - Force region feature differentiation
         contrastive_loss = 0.0
         if len(region_scores) > 1 and len(region_scores_tensor) > 0:
-            # 对于异常样本，强制异常区域得分远高于其他区域
+            # For anomalous samples, force anomalous region score to be much higher than other regions
             anomaly_mask = global_labels > 0
             if anomaly_mask.sum() > 0:
                 anomaly_region_scores = region_scores_tensor[anomaly_mask]
-                anomaly_region_labels = region_labels[anomaly_mask] - 1  # 转换为0-based索引
+                anomaly_region_labels = region_labels[anomaly_mask] - 1  # Convert to 0-based index
 
                 if anomaly_region_scores.shape[0] > 0:
-                    # 对每个异常样本，其对应区域得分应该比其他区域高
+                    # For each anomalous sample, its corresponding region score should be higher than other regions
                     for i, (scores, true_region) in enumerate(zip(anomaly_region_scores, anomaly_region_labels)):
                         if 0 <= true_region < len(scores):
-                            # 真实异常区域得分
+                            # True anomaly region score
                             true_score = scores[true_region]
-                            # 其他区域得分
+                            # Other region scores
                             other_scores = torch.cat([scores[:true_region], scores[true_region+1:]])
                             if len(other_scores) > 0:
-                                # 对比损失：真实区域得分应该比其他区域高至少margin
+                                # Contrastive loss: True region score should be higher than others by at least margin
                                 margin = 2.0
                                 max_other_score = torch.max(other_scores)
                                 contrastive_loss += torch.relu(max_other_score - true_score + margin)
 
                 contrastive_loss = contrastive_loss / max(1, anomaly_mask.sum())
 
-        # 5. 总损失 - 平衡的权重策略
+        # 5. Total loss - Balanced weight strategy
         total_loss = (
-            1.0 * global_focal_loss +      # 全局检测损失
-            15.0 * region_focal_loss +     # 区域检测损失（进一步增加权重）
-            0.5 * consistency_loss +       # 一致性损失（增加权重）
-            8.0 * contrastive_loss         # 对比损失（强制区域差异化）
+            1.0 * global_focal_loss +      # Global detection loss
+            15.0 * region_focal_loss +     # Region detection loss (Further increased weight)
+            0.5 * consistency_loss +       # Consistency loss (Increased weight)
+            8.0 * contrastive_loss         # Contrastive loss (Force region differentiation)
         )
 
         return total_loss
@@ -734,45 +734,45 @@ class LTFMModel(nn.Module):
                region_graph_embeddings: List[torch.Tensor],
                threshold: float = 0.5) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        预测异常
+        Predict anomaly
 
         Args:
-            global_graph_embedding: 全局图嵌入
-            region_graph_embeddings: 区域图嵌入列表
-            threshold: 异常检测阈值
+            global_graph_embedding: Global graph embedding
+            region_graph_embeddings: List of region graph embeddings
+            threshold: Anomaly detection threshold
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: (全局异常预测, 区域异常预测)
+            Tuple[torch.Tensor, torch.Tensor]: (Global anomaly prediction, Region anomaly prediction)
         """
         self.eval()
         with torch.no_grad():
             global_score, region_scores = self.forward(global_graph_embedding, region_graph_embeddings)
 
-            # 全局异常预测
+            # Global anomaly prediction
             global_pred = (torch.sigmoid(global_score) > threshold).float()
 
-            # 区域异常预测 - 改进版
+            # Region anomaly prediction - Improved version
             if region_scores:
                 region_scores_tensor = torch.cat(region_scores, dim=1)
                 normal_scores = torch.zeros(region_scores_tensor.shape[0], 1,
                                           device=region_scores_tensor.device)
                 all_scores = torch.cat([normal_scores, region_scores_tensor], dim=1)
 
-                # 使用温度缩放平滑预测
-                temperature = 2.0  # 温度参数
+                # Use temperature scaling to smooth predictions
+                temperature = 2.0  # Temperature parameter
                 scaled_scores = all_scores / temperature
 
-                # 使用softmax获得概率分布
+                # Use softmax to get probability distribution
                 probs = torch.softmax(scaled_scores, dim=1)
 
-                # 预测：选择概率最高的类别
+                # Predict: Select class with highest probability
                 region_pred = torch.argmax(probs, dim=1)
 
-                # 添加置信度阈值：如果最高概率太低，预测为正常
+                # Add confidence threshold: If highest probability is too low, predict as normal
                 max_probs = torch.max(probs, dim=1)[0]
-                confidence_threshold = 0.35  # 置信度阈值
+                confidence_threshold = 0.35  # Confidence threshold
                 low_confidence_mask = max_probs < confidence_threshold
-                region_pred[low_confidence_mask] = 0  # 低置信度时预测为正常
+                region_pred[low_confidence_mask] = 0  # Predict as normal when confidence is low
 
             else:
                 region_pred = torch.zeros(global_pred.shape[0], dtype=torch.long,

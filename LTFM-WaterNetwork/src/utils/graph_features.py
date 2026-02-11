@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-图特征提取器
+Graph Feature Extractor
 """
 
 import numpy as np
@@ -11,30 +11,30 @@ from loguru import logger
 
 
 class GraphFeatureExtractor:
-    """图特征提取器，提取丰富的拓扑特征"""
+    """Graph Feature Extractor, extracts rich topological features"""
     
     def __init__(self):
-        """初始化特征提取器"""
+        """Initialize feature extractor"""
         pass
     
     def extract_node_features(self, graph: nx.Graph, node_weights: Dict[str, float] = None) -> Dict[str, np.ndarray]:
         """
-        提取节点级别的特征
+        Extract node-level features
         
         Args:
-            graph: NetworkX图
-            node_weights: 节点权重字典
+            graph: NetworkX Graph
+            node_weights: Node weights dictionary
             
         Returns:
-            Dict[str, np.ndarray]: 特征字典
+            Dict[str, np.ndarray]: Feature dictionary
         """
         features = {}
         
-        # 基本拓扑特征
+        # Basic topological features
         features['degree'] = np.array([graph.degree(node) for node in graph.nodes()])
         features['clustering'] = np.array([nx.clustering(graph, node) for node in graph.nodes()])
         
-        # 中心性特征
+        # Centrality features
         try:
             degree_centrality = nx.degree_centrality(graph)
             features['degree_centrality'] = np.array([degree_centrality[node] for node in graph.nodes()])
@@ -49,15 +49,15 @@ class GraphFeatureExtractor:
             features['eigenvector_centrality'] = np.array([eigenvector_centrality[node] for node in graph.nodes()])
             
         except Exception as e:
-            logger.warning(f"中心性计算失败: {e}")
-            # 使用默认值
+            logger.warning(f"Centrality calculation failed: {e}")
+            # Use default values
             n_nodes = len(graph.nodes())
             features['degree_centrality'] = np.ones(n_nodes) / n_nodes
             features['closeness_centrality'] = np.ones(n_nodes) / n_nodes
             features['betweenness_centrality'] = np.zeros(n_nodes)
             features['eigenvector_centrality'] = np.ones(n_nodes) / n_nodes
         
-        # 节点权重特征
+        # Node weight features
         if node_weights:
             node_list = list(graph.nodes())
             weights = np.array([node_weights.get(node, 0.0) for node in node_list])
@@ -67,7 +67,7 @@ class GraphFeatureExtractor:
             features['node_weights'] = np.zeros(len(graph.nodes()))
             features['weight_normalized'] = np.zeros(len(graph.nodes()))
         
-        # 邻居特征
+        # Neighbor features
         features['neighbor_count'] = features['degree']
         features['neighbor_weight_sum'] = self._calculate_neighbor_weight_sum(graph, node_weights)
         
@@ -75,27 +75,27 @@ class GraphFeatureExtractor:
     
     def extract_graph_features(self, graph: nx.Graph, node_weights: Dict[str, float] = None) -> np.ndarray:
         """
-        提取图级别的特征
+        Extract graph-level features
         
         Args:
-            graph: NetworkX图
-            node_weights: 节点权重字典
+            graph: NetworkX Graph
+            node_weights: Node weights dictionary
             
         Returns:
-            np.ndarray: 图特征向量
+            np.ndarray: Graph feature vector
         """
         features = []
         
-        # 基本图统计
-        features.append(len(graph.nodes()))  # 节点数
-        features.append(len(graph.edges()))  # 边数
-        features.append(nx.density(graph))   # 密度
+        # Basic graph statistics
+        features.append(len(graph.nodes()))  # Number of nodes
+        features.append(len(graph.edges()))  # Number of edges
+        features.append(nx.density(graph))   # Density
         
-        # 连通性特征
+        # Connectivity features
         features.append(1.0 if nx.is_connected(graph) else 0.0)
-        features.append(len(list(nx.connected_components(graph))))  # 连通分量数
+        features.append(len(list(nx.connected_components(graph))))  # Number of connected components
         
-        # 路径特征
+        # Path features
         try:
             if nx.is_connected(graph):
                 features.append(nx.average_shortest_path_length(graph))
@@ -107,10 +107,10 @@ class GraphFeatureExtractor:
             features.append(0.0)
             features.append(0.0)
         
-        # 聚类系数
+        # Clustering coefficient
         features.append(nx.average_clustering(graph))
         
-        # 度分布特征
+        # Degree distribution features
         degrees = [graph.degree(node) for node in graph.nodes()]
         if degrees:
             features.append(np.mean(degrees))
@@ -120,7 +120,7 @@ class GraphFeatureExtractor:
         else:
             features.extend([0.0, 0.0, 0.0, 0.0])
         
-        # 权重特征
+        # Weight features
         if node_weights:
             weights = list(node_weights.values())
             if weights:
@@ -139,23 +139,23 @@ class GraphFeatureExtractor:
     def create_enhanced_embedding(self, graph: nx.Graph, node_weights: Dict[str, float] = None, 
                                 base_embedding: np.ndarray = None) -> np.ndarray:
         """
-        创建增强的图嵌入，结合拓扑特征和基础嵌入
+        Create enhanced graph embedding, combining topological features and base embedding
         
         Args:
-            graph: NetworkX图
-            node_weights: 节点权重字典
-            base_embedding: 基础嵌入（如Graph2Vec）
+            graph: NetworkX Graph
+            node_weights: Node weights dictionary
+            base_embedding: Base embedding (e.g., Graph2Vec)
             
         Returns:
-            np.ndarray: 增强的图嵌入
+            np.ndarray: Enhanced graph embedding
         """
-        # 提取图级别特征
+        # Extract graph-level features
         graph_features = self.extract_graph_features(graph, node_weights)
         
-        # 提取节点级别特征并聚合
+        # Extract node-level features and aggregate
         node_features = self.extract_node_features(graph, node_weights)
         
-        # 聚合节点特征
+        # Aggregate node features
         aggregated_features = []
         for feature_name, feature_values in node_features.items():
             if len(feature_values) > 0:
@@ -168,20 +168,20 @@ class GraphFeatureExtractor:
             else:
                 aggregated_features.extend([0.0, 0.0, 0.0, 0.0])
         
-        # 组合所有特征
+        # Combine all features
         enhanced_features = np.concatenate([
             graph_features,
             np.array(aggregated_features)
         ])
         
-        # 如果有基础嵌入，则结合
+        # If base embedding exists, combine it
         if base_embedding is not None:
             enhanced_features = np.concatenate([base_embedding, enhanced_features])
         
         return enhanced_features
     
     def _normalize_features(self, features: np.ndarray) -> np.ndarray:
-        """归一化特征"""
+        """Normalize features"""
         if len(features) == 0:
             return features
         
@@ -194,7 +194,7 @@ class GraphFeatureExtractor:
         return (features - min_val) / (max_val - min_val)
     
     def _calculate_neighbor_weight_sum(self, graph: nx.Graph, node_weights: Dict[str, float] = None) -> np.ndarray:
-        """计算每个节点的邻居权重和"""
+        """Calculate the sum of neighbor weights for each node"""
         if not node_weights:
             return np.zeros(len(graph.nodes()))
         
@@ -209,14 +209,14 @@ class GraphFeatureExtractor:
     def extract_subgraph_features(self, subgraphs: List[nx.Graph], 
                                 node_weights_list: List[Dict[str, float]] = None) -> List[np.ndarray]:
         """
-        提取子图特征
+        Extract subgraph features
         
         Args:
-            subgraphs: 子图列表
-            node_weights_list: 节点权重列表
+            subgraphs: List of subgraphs
+            node_weights_list: List of node weights
             
         Returns:
-            List[np.ndarray]: 子图特征列表
+            List[np.ndarray]: List of subgraph features
         """
         features_list = []
         

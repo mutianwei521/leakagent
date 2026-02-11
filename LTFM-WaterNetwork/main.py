@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-供水管网漏损检测系统主程序
+Water Supply Network Leak Detection System Main Program
 Water Distribution Network Leak Detection System using LTFM
 """
 
@@ -13,7 +13,7 @@ import pandas as pd
 from loguru import logger
 from typing import Dict, List
 
-# 添加src目录到Python路径
+# Add src directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.data.epanet_handler import EPANETHandler
@@ -25,29 +25,29 @@ from src.inference.predictor import LTFMPredictor
 
 
 def load_config(config_path: str = "config.yaml") -> Dict:
-    """加载配置文件"""
+    """Load configuration file"""
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        logger.info(f"配置文件加载成功: {config_path}")
+        logger.info(f"Configuration file loaded successfully: {config_path}")
         return config
     except Exception as e:
-        logger.error(f"加载配置文件失败: {e}")
+        logger.error(f"Failed to load configuration file: {e}")
         return {}
 
 
 def setup_logging(config: Dict):
-    """设置日志"""
+    """Setup logging"""
     try:
         log_level = config.get('logging', {}).get('level', 'INFO')
         log_format = config.get('logging', {}).get('format', 
                                "{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
         
-        # 创建日志目录
+        # Create log directory
         os.makedirs(config.get('data', {}).get('log_dir', 'logs'), exist_ok=True)
         
-        # 配置loguru
-        logger.remove()  # 移除默认处理器
+        # Configure loguru
+        logger.remove()  # Remove default handler
         logger.add(sys.stderr, level=log_level, format=log_format)
         logger.add(
             os.path.join(config.get('data', {}).get('log_dir', 'logs'), "system.log"),
@@ -57,34 +57,34 @@ def setup_logging(config: Dict):
             retention="30 days"
         )
         
-        logger.info("日志系统初始化完成")
+        logger.info("Logging system initialized")
         
     except Exception as e:
-        print(f"日志设置失败: {e}")
+        print(f"Failed to setup logging: {e}")
 
 
 def train_mode(config: Dict, args):
-    """训练模式"""
+    """Train mode"""
     try:
-        logger.info("开始训练模式")
+        logger.info("Starting training mode")
         
-        # 1. 初始化EPANET处理器
+        # 1. Initialize EPANET handler
         epanet_file = args.epanet_file or config['data']['epanet_file']
         epanet_handler = EPANETHandler(epanet_file)
         
         if not epanet_handler.load_network():
-            logger.error("EPANET网络加载失败")
+            logger.error("Failed to load EPANET network")
             return False
         
-        # 2. 计算压力灵敏度
-        logger.info("计算压力灵敏度...")
+        # 2. Calculate pressure sensitivity
+        logger.info("Calculating pressure sensitivity...")
         sensitivity_analyzer = SensitivityAnalyzer(epanet_handler)
         
         if not sensitivity_analyzer.calculate_normal_pressure(
             config['hydraulic']['simulation_hours'],
             config['hydraulic']['time_step']
         ):
-            logger.error("正常压力计算失败")
+            logger.error("Failed to calculate normal pressure")
             return False
         
         if not sensitivity_analyzer.calculate_sensitivity_matrix(
@@ -92,17 +92,17 @@ def train_mode(config: Dict, args):
             config['hydraulic']['simulation_hours'],
             config['hydraulic']['time_step']
         ):
-            logger.error("灵敏度矩阵计算失败")
+            logger.error("Failed to calculate sensitivity matrix")
             return False
         
         sensitivity_analyzer.normalize_sensitivity_matrix()
         node_weights = sensitivity_analyzer.calculate_node_weights()
         
-        # 保存灵敏度数据
+        # Save sensitivity data
         sensitivity_analyzer.save_sensitivity_data(config['data']['output_dir'])
         
-        # 3. FCM分区
-        logger.info("进行FCM分区...")
+        # 3. FCM partitioning
+        logger.info("Performing FCM partitioning...")
         fcm_partitioner = FCMPartitioner(
             n_clusters=config['fcm']['n_clusters'],
             m=config['fcm']['m'],
@@ -110,7 +110,7 @@ def train_mode(config: Dict, args):
             error=config['fcm']['error']
         )
         
-        # 准备特征
+        # Prepare features
         network_graph = epanet_handler.get_network_graph()
         pipe_lengths = epanet_handler.get_pipe_lengths()
         
@@ -123,18 +123,18 @@ def train_mode(config: Dict, args):
         )
         
         if not fcm_partitioner.partition_network(features):
-            logger.error("FCM分区失败")
+            logger.error("FCM partitioning failed")
             return False
 
-        # 离群点剔除
-        logger.info("进行离群点检测和处理...")
-        # 获取原始分区标签（从0开始，需要转换为从1开始）
+        # Outlier removal
+        logger.info("Detecting and processing outliers...")
+        # Get raw partition labels (start from 0, need to convert to start from 1)
         raw_labels = fcm_partitioner.partition_labels + 1
 
-        # 获取所有节点名称（包括非需水节点）
+        # Get all node names (including non-demand nodes)
         all_node_names = list(epanet_handler.wn.node_name_list)
 
-        # 执行离群点检测和处理（保存可视化）
+        # Perform outlier detection and processing (save visualization)
         partition_viz_dir = os.path.join(config['data']['output_dir'], 'partition_visualization')
         refined_labels = fcm_partitioner.remove_outliers_iteratively(
             wn=epanet_handler.wn,
@@ -147,17 +147,17 @@ def train_mode(config: Dict, args):
             output_dir=partition_viz_dir
         )
 
-        # 更新分区标签（转换回从0开始）
+        # Update partition labels (convert back to start from 0)
         fcm_partitioner.partition_labels = refined_labels - 1
 
-        # 保存分区结果
+        # Save partition results
         fcm_partitioner.save_partition_results(
             config['data']['output_dir'],
             epanet_handler.node_names
         )
         
-        # 4. 训练Graph2Vec
-        logger.info("训练Graph2Vec...")
+        # 4. Train Graph2Vec
+        logger.info("Training Graph2Vec...")
         subgraphs = fcm_partitioner.get_partition_subgraphs(network_graph, epanet_handler.node_names)
         all_graphs = [network_graph] + subgraphs
         
@@ -170,185 +170,185 @@ def train_mode(config: Dict, args):
         )
         
         if not graph2vec_encoder.train_model(all_graphs):
-            logger.error("Graph2Vec训练失败")
+            logger.error("Graph2Vec training failed")
             return False
         
-        # 保存Graph2Vec模型
+        # Save Graph2Vec model
         graph2vec_encoder.save_model(os.path.join(config['data']['output_dir'], 'graph2vec_model.model'))
         
-        # 5. 训练LTFM模型
-        logger.info("训练LTFM模型...")
+        # 5. Train LTFM model
+        logger.info("Training LTFM model...")
         trainer = LTFMTrainer(config)
         
         if not trainer.initialize_models():
-            logger.error("LTFM模型初始化失败")
+            logger.error("LTFM model initialization failed")
             return False
         
-        # 设置预训练的Graph2Vec
+        # Set pre-trained Graph2Vec
         trainer.graph2vec_encoder = graph2vec_encoder
         
-        # 生成训练场景
+        # Generate training scenarios
         train_scenarios = trainer.generate_training_scenarios(
             epanet_handler, sensitivity_analyzer, fcm_partitioner,
             n_scenarios=args.n_scenarios or 1000
         )
         
-        # 使用分层采样分割训练和验证集，确保验证集包含正常和异常样本
+        # Use stratified sampling to split training and validation sets, ensuring validation set contains both normal and anomaly samples
         normal_scenarios = [s for s in train_scenarios if s['global_label'] == 0]
         anomaly_scenarios = [s for s in train_scenarios if s['global_label'] == 1]
 
-        logger.info(f"正常场景数量: {len(normal_scenarios)}, 异常场景数量: {len(anomaly_scenarios)}")
+        logger.info(f"Number of normal scenarios: {len(normal_scenarios)}, Number of anomaly scenarios: {len(anomaly_scenarios)}")
 
-        # 分别对正常和异常场景进行8:2分割
+        # Split normal and anomaly scenarios 8:2 respectively
         normal_split = int(len(normal_scenarios) * 0.8)
         anomaly_split = int(len(anomaly_scenarios) * 0.8)
 
         train_data = normal_scenarios[:normal_split] + anomaly_scenarios[:anomaly_split]
         val_data = normal_scenarios[normal_split:] + anomaly_scenarios[anomaly_split:]
 
-        # 打乱数据
+        # Shuffle data
         import random
         random.shuffle(train_data)
         random.shuffle(val_data)
         
-        # 训练模型
+        # Train model
         if not trainer.train(train_data, val_data, skip_stage1=args.skip_stage1):
-            logger.error("LTFM模型训练失败")
+            logger.error("LTFM model training failed")
             return False
         
-        # 6. Stage 2: 训练NodeLocalizer（节点级漏损定位）
-        logger.info("开始Stage 2: 训练NodeLocalizer...")
+        # 6. Stage 2: Train NodeLocalizer (Node-level leak localization)
+        logger.info("Starting Stage 2: Training NodeLocalizer...")
         if not trainer.train_node_localizer(train_data, val_data):
-            logger.warning("NodeLocalizer训练失败，但LTFM模型已训练完成")
+            logger.warning("NodeLocalizer training failed, but LTFM model training completed")
         
-        logger.info("训练完成")
+        logger.info("Training completed")
         return True
         
     except Exception as e:
-        logger.error(f"训练模式失败: {e}")
+        logger.error(f"Training mode failed: {e}")
         return False
 
 
 def inference_mode(config: Dict, args):
-    """推理模式"""
+    """Inference mode"""
     try:
-        logger.info("开始推理模式")
+        logger.info("Starting inference mode")
         
-        # 初始化预测器
+        # Initialize predictor
         predictor = LTFMPredictor(config)
         
-        # 加载模型
+        # Load models
         graph2vec_path = args.graph2vec_model or os.path.join(config['data']['output_dir'], 'graph2vec_model.model')
         ltfm_checkpoint_path = args.ltfm_checkpoint or os.path.join('output/checkpoints', 'best_model.pth')
         
         if not predictor.load_models(graph2vec_path, ltfm_checkpoint_path):
-            logger.error("模型加载失败")
+            logger.error("Failed to load models")
             return False
         
-        # 初始化网络
+        # Initialize network
         epanet_file = args.epanet_file or config['data']['epanet_file']
         if not predictor.initialize_network(epanet_file):
-            logger.error("网络初始化失败")
+            logger.error("Network initialization failed")
             return False
         
-        # 显示网络状态
+        # Show network status
         status = predictor.get_network_status()
-        logger.info(f"网络状态: {status}")
+        logger.info(f"Network status: {status}")
         
         if args.test_data:
-            # 批量预测模式
-            logger.info(f"加载测试数据: {args.test_data}")
+            # Batch prediction mode
+            logger.info(f"Loading test data: {args.test_data}")
             test_pressure_data = pd.read_csv(args.test_data, index_col=0, encoding='utf-8')
             
-            # 这里假设测试数据是单个时间点的压力数据
-            # 实际使用时可能需要根据数据格式调整
+            # Assuming test data is pressure data for a single time point
+            # Actual usage might need adjustment based on data format
             results = predictor.batch_predict([test_pressure_data])
             
-            # 保存结果
+            # Save results
             output_path = args.output or os.path.join(config['data']['output_dir'], 'prediction_results.csv')
             predictor.save_prediction_results(results, output_path)
             
-            # 显示结果
+            # Show results
             for i, result in enumerate(results):
-                logger.info(f"样本 {i}: 异常={result.get('global_anomaly', False)}, "
-                          f"概率={result.get('global_probability', 0):.3f}, "
-                          f"区域={result.get('anomaly_region', 0)}")
+                logger.info(f"Sample {i}: Anomaly={result.get('global_anomaly', False)}, "
+                          f"Probability={result.get('global_probability', 0):.3f}, "
+                          f"Region={result.get('anomaly_region', 0)}")
         else:
-            # 实时监控模式
-            logger.info("实时监控模式（演示）")
-            logger.info("在实际应用中，这里会连接到实时数据源")
+            # Real-time monitoring mode
+            logger.info("Real-time monitoring mode (Demo)")
+            logger.info("In actual application, this would connect to a real-time data source")
 
-            # 演示：使用正常压力数据进行预测
+            # Demo: Predict using normal pressure data
             result = predictor.predict_anomaly(predictor.normal_pressure)
-            logger.info(f"演示预测结果: {result}")
+            logger.info(f"Demo prediction result: {result}")
 
-            # 显示分区信息
+            # Show partition information
             if result and 'partitions' in result:
-                logger.info(f"FCM分区结果: {len(result['partitions'])} 个分区")
+                logger.info(f"FCM Partitioning Results: {len(result['partitions'])} partitions")
                 for i, partition in enumerate(result['partitions']):
-                    logger.info(f"分区 {i}: {len(partition)} 个节点")
+                    logger.info(f"Partition {i}: {len(partition)} nodes")
         
         return True
         
     except Exception as e:
-        logger.error(f"推理模式失败: {e}")
+        logger.error(f"Inference mode failed: {e}")
         return False
 
 
 def main():
-    """主函数"""
-    parser = argparse.ArgumentParser(description="供水管网漏损检测系统")
+    """Main function"""
+    parser = argparse.ArgumentParser(description="Water Distribution Network Leak Detection System")
     parser.add_argument('--mode', choices=['train', 'inference'], 
-                       help='运行模式：train（训练）或 inference（推理）', default='train')
+                       help='Run mode: train or inference', default='train')
     parser.add_argument('--config', default='config.yaml',
-                       help='配置文件路径')
+                       help='Configuration file path')
     parser.add_argument('--epanet-file', 
-                       help='EPANET网络文件路径')
+                       help='EPANET network file path')
     
-    # 训练模式参数
+    # Train mode parameters
     parser.add_argument('--n-scenarios', type=int,
-                       help='训练场景数量')
+                       help='Number of training scenarios')
     parser.add_argument('--skip-stage1', action='store_true',
-                       help='跳过Stage 1 (LTFM) 训练，直接加载已有模型训练Stage 2')
+                       help='Skip Stage 1 (LTFM) training, load existing model to train Stage 2')
     
-    # 推理模式参数
+    # Inference mode parameters
     parser.add_argument('--graph2vec-model',
-                       help='Graph2Vec模型路径')
+                       help='Graph2Vec model path')
     parser.add_argument('--ltfm-checkpoint',
-                       help='LTFM检查点路径')
+                       help='LTFM checkpoint path')
     parser.add_argument('--test-data',
-                       help='测试数据文件路径')
+                       help='Test data file path')
     parser.add_argument('--output',
-                       help='输出文件路径')
+                       help='Output file path')
     
     args = parser.parse_args()
     
-    # 加载配置
+    # Load configuration
     config = load_config(args.config)
     if not config:
-        print("配置加载失败，退出程序")
+        print(f"Failed to load configuration, exiting")
         return 1
     
-    # 设置日志
+    # Setup logging
     setup_logging(config)
     
-    # 创建输出目录
+    # Create output directory
     os.makedirs(config['data']['output_dir'], exist_ok=True)
     
-    # 根据模式运行
+    # Run based on mode
     if args.mode == 'train':
         success = train_mode(config, args)
     elif args.mode == 'inference':
         success = inference_mode(config, args)
     else:
-        logger.error(f"未知模式: {args.mode}")
+        logger.error(f"Unknown mode: {args.mode}")
         return 1
     
     if success:
-        logger.info("程序执行成功")
+        logger.info("Program execution successful")
         return 0
     else:
-        logger.error("程序执行失败")
+        logger.error("Program execution failed")
         return 1
 
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-训练模块
-实现模型训练流程，包括损失函数计算和反向传播
+Training Module
+Implements model training workflow, including loss function calculation and backpropagation
 """
 
 import torch
@@ -29,19 +29,19 @@ from ..utils.fcm_partitioner import FCMPartitioner
 
 def custom_collate_fn(batch):
     """
-    自定义collate函数，用于处理包含NetworkX图的批次数据
+    Custom collate function for batch processing containing NetworkX graphs
 
     Args:
-        batch: 批次数据列表
+        batch: List of batch data
 
     Returns:
-        List: 原始批次数据（不进行collate操作）
+        List: Original batch data (no collate operation)
     """
     return batch
 
 
 class PrecomputedDataset(Dataset):
-    """预计算嵌入数据集：直接存储tensor，避免重复编码"""
+    """Precomputed embedding dataset: Stores tensors directly to avoid repeated encoding"""
 
     def __init__(self, global_embeddings: torch.Tensor, 
                  region_embeddings: List[torch.Tensor],
@@ -85,20 +85,20 @@ def precomputed_collate_fn(batch):
 
 
 class WaterNetworkDataset(Dataset):
-    """供水管网数据集（兼容旧接口）"""
+    """Water Network Dataset (Compatible with legacy interface)"""
 
     def __init__(self, scenarios: List[Dict]):
         """
-        初始化数据集
+        Initialize dataset
 
         Args:
-            scenarios: 场景列表，每个场景包含：
-                - global_graph: 全局图
-                - region_graphs: 区域图列表
-                - global_weights: 全局节点权重
-                - region_weights: 区域节点权重列表
-                - global_label: 全局标签（0正常，1异常）
-                - region_label: 区域标签（0正常，>0异常区域索引）
+            scenarios: List of scenarios, each scenario contains:
+                - global_graph: Global graph
+                - region_graphs: List of region graphs
+                - global_weights: Global node weights
+                - region_weights: List of region node weights
+                - global_label: Global label (0 normal, 1 anomaly)
+                - region_label: Region label (0 normal, >0 anomaly region index)
         """
         self.scenarios = scenarios
 
@@ -110,31 +110,31 @@ class WaterNetworkDataset(Dataset):
 
 
 class LTFMTrainer:
-    """LTFM模型训练器"""
+    """LTFM Model Trainer"""
     
     def __init__(self, config: Dict):
         """
-        初始化训练器
+        Initialize trainer
         
         Args:
-            config: 配置字典
+            config: Configuration dictionary
         """
         self.config = config
         self.device = torch.device('cuda' if torch.cuda.is_available() and config.get('use_cuda', True) else 'cpu')
         
-        # 模型组件
+        # Model components
         self.graph2vec_encoder = None
         self.ltfm_model = None
         self.optimizer = None
         self.scheduler = None
         
-        # 训练状态
+        # Training status
         self.current_epoch = 0
         self.best_val_loss = float('inf')
-        self.best_composite_score = float('-inf')  # 综合评分
+        self.best_composite_score = float('-inf')  # Composite score
         self.patience_counter = 0
         
-        # 训练历史
+        # Training history
         self.train_history = {
             'train_loss': [],
             'val_loss': [],
@@ -143,9 +143,9 @@ class LTFMTrainer:
         }
         
     def initialize_models(self):
-        """初始化模型"""
+        """Initialize models"""
         try:
-            # Graph2Vec编码器
+            # Graph2Vec Encoder
             self.graph2vec_encoder = Graph2VecEncoder(
                 embedding_dim=int(self.config['graph2vec']['dimensions']),
                 wl_iterations=3,
@@ -155,7 +155,7 @@ class LTFMTrainer:
                 learning_rate=float(self.config['graph2vec']['learning_rate'])
             ).to(self.device)
             
-            # LTFM模型
+            # LTFM Model
             self.ltfm_model = LTFMModel(
                 graph2vec_dim=int(self.config['graph2vec']['dimensions']),
                 embed_dim=int(self.config['ltfm']['embedding_dim']),
@@ -166,7 +166,7 @@ class LTFMTrainer:
                 dropout=float(self.config['ltfm']['dropout'])
             ).to(self.device)
             
-            # 优化器 - 使用AdamW和改进的参数
+            # Optimizer - Use AdamW and improved parameters
             self.optimizer = optim.AdamW(
                 self.ltfm_model.parameters(),
                 lr=self.config['training']['learning_rate'],
@@ -175,7 +175,7 @@ class LTFMTrainer:
                 eps=1e-8
             )
 
-            # 学习率调度器 - 使用ReduceLROnPlateau（更适合我们的任务）
+            # Learning rate scheduler - Use ReduceLROnPlateau (More suitable for our task)
             self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
                 mode='min',
@@ -184,14 +184,14 @@ class LTFMTrainer:
                 min_lr=1e-6
             )
 
-            # 梯度裁剪参数
+            # Gradient clipping parameter
             self.max_grad_norm = 1.0
             
-            logger.info("模型初始化完成")
+            logger.info("Model initialization completed")
             return True
             
         except Exception as e:
-            logger.error(f"模型初始化失败: {e}")
+            logger.error(f"Model initialization failed: {e}")
             return False
     
     def generate_training_scenarios(self, epanet_handler: EPANETHandler,
@@ -199,47 +199,47 @@ class LTFMTrainer:
                                   fcm_partitioner: FCMPartitioner,
                                   n_scenarios: int = 1000) -> List[Dict]:
         """
-        生成训练场景
+        Generate training scenarios
         
         Args:
-            epanet_handler: EPANET处理器
-            sensitivity_analyzer: 灵敏度分析器
-            fcm_partitioner: FCM分区器
-            n_scenarios: 场景数量
+            epanet_handler: EPANET handler
+            sensitivity_analyzer: Sensitivity analyzer
+            fcm_partitioner: FCM partitioner
+            n_scenarios: Number of scenarios
             
         Returns:
-            List[Dict]: 训练场景列表
+            List[Dict]: List of training scenarios
         """
         try:
             scenarios = []
             node_names = epanet_handler.node_names
             n_nodes = len(node_names)
             
-            # 获取网络图和分区信息
+            # Get network graph and partition info
             network_graph = epanet_handler.get_network_graph()
             partition_info = fcm_partitioner.get_partition_info()
             subgraphs = fcm_partitioner.get_partition_subgraphs(network_graph, node_names)
             
-            logger.info(f"开始生成 {n_scenarios} 个训练场景")
+            logger.info(f"Start generating {n_scenarios} training scenarios")
             
-            # 生成正常场景 - 增加多样性
+            # Generate normal scenarios - Increase diversity
             n_normal = n_scenarios // 2
-            for i in tqdm(range(n_normal), desc="生成正常场景"):
-                # 正常场景：添加小幅度的自然变化
+            for i in tqdm(range(n_normal), desc="Generating normal scenarios"):
+                # Normal scenario: Add small natural variations
                 normal_weights = {}
                 for node in node_names:
-                    # 添加小幅度的随机变化，模拟正常运行时的自然波动
-                    # 变化范围：-0.05 到 +0.05（相对于异常场景的变化幅度很小）
+                    # Add small random variations, simulate natural fluctuations during normal operation
+                    # Variation range: -0.05 to +0.05 (Small compared to anomaly scenarios)
                     natural_variation = np.random.uniform(-0.05, 0.05)
                     normal_weights[node] = natural_variation
 
-                # 为每个区域生成略有不同的权重
+                # Generate slightly different weights for each region
                 region_weights = []
                 for subgraph in subgraphs:
                     region_weight = {}
                     for node in node_names:
                         if node in subgraph.nodes():
-                            # 区域内节点有相关性的小变化
+                            # Small variations for correlated nodes within the region
                             base_variation = normal_weights[node]
                             region_variation = base_variation + np.random.uniform(-0.02, 0.02)
                             region_weight[node] = region_variation
@@ -252,55 +252,55 @@ class LTFMTrainer:
                     'region_graphs': subgraphs,
                     'global_weights': normal_weights,
                     'region_weights': region_weights,
-                    'global_label': 0,  # 正常
-                    'region_label': 0,  # 正常
-                    'anomaly_node_idx': -1,  # 正常场景无漏损节点
+                    'global_label': 0,  # Normal
+                    'region_label': 0,  # Normal
+                    'anomaly_node_idx': -1,  # No anomaly node in normal scenario
                     'anomaly_node_name': None,
                     'node_names': node_names
                 }
                 scenarios.append(scenario)
             
-            # 生成异常场景 - 增强版
+            # Generate anomaly scenarios - Enhanced version
             n_anomaly = n_scenarios - n_normal
             anomaly_count = 0
-            max_attempts = n_anomaly * 3  # 最多尝试3倍的次数
+            max_attempts = n_anomaly * 3  # Max attempts 3 times
 
-            for attempt in tqdm(range(max_attempts), desc="生成异常场景"):
+            for attempt in tqdm(range(max_attempts), desc="Generating anomaly scenarios"):
                 if anomaly_count >= n_anomaly:
                     break
 
-                # 随机选择异常节点
+                # Randomly select anomaly node
                 anomaly_node_idx = np.random.randint(0, n_nodes)
                 anomaly_node = node_names[anomaly_node_idx]
 
-                # 获取异常节点的灵敏度特征
+                # Get sensitivity features of the anomaly node
                 sensitivity_features = sensitivity_analyzer.get_sensitivity_features(anomaly_node_idx)
 
                 if not sensitivity_features:
-                    logger.debug(f"节点 {anomaly_node} 灵敏度特征为空，跳过")
+                    logger.debug(f"Sensitivity features for node {anomaly_node} are empty, skipping")
                     continue
 
-                # 构建节点权重（压力差）
+                # Build node weights (pressure difference)
                 pressure_sensitivity = sensitivity_features['avg_pressure_sensitivity']
 
-                # 检查压力灵敏度是否有效
+                # Check if pressure sensitivity is valid
                 if len(pressure_sensitivity) != n_nodes:
-                    logger.debug(f"节点 {anomaly_node} 压力灵敏度长度不匹配，跳过")
+                    logger.debug(f"Pressure sensitivity length mismatch for node {anomaly_node}, skipping")
                     continue
 
-                # 数据增强：添加噪声和变换
+                # Data augmentation: Add noise and transformation
                 augmented_pressure_sensitivity = self._augment_pressure_sensitivity(
                     pressure_sensitivity, anomaly_node_idx
                 )
 
                 global_weights = {node_names[j]: augmented_pressure_sensitivity[j] for j in range(n_nodes)}
 
-                # 确定异常区域 - 修复标签编码
+                # Determine anomaly region - Fix label encoding
                 partition_labels = partition_info['partition_labels']
-                # 异常区域标签：0=正常，1=区域0异常，2=区域1异常，3=区域2异常...
-                anomaly_region = partition_labels[anomaly_node_idx] + 1  # +1因为0表示正常
+                # Anomaly region label: 0=normal, 1=region 0 anomaly, 2=region 1 anomaly, 3=region 2 anomaly...
+                anomaly_region = partition_labels[anomaly_node_idx] + 1  # +1 because 0 represents normal
 
-                # 构建区域权重 - 增强异常区域的特征
+                # Build region weights - Enhance features of the anomaly region
                 region_weights = []
                 for region_id, subgraph in enumerate(subgraphs):
                     region_weight = {}
@@ -308,11 +308,11 @@ class LTFMTrainer:
                         node_idx = node_names.index(node)
                         weight = augmented_pressure_sensitivity[node_idx]
 
-                        # 如果是异常区域，大幅增强权重
+                        # If it is an anomaly region, significantly enhance weights
                         if partition_labels[node_idx] == (anomaly_region - 1):
-                            weight *= np.random.uniform(3.0, 5.0)  # 大幅增强异常区域权重
+                            weight *= np.random.uniform(3.0, 5.0)  # Significantly enhance anomaly region weights
                         else:
-                            # 非异常区域，适当降低权重
+                            # Non-anomaly region, appropriately reduce weights
                             weight *= np.random.uniform(0.3, 0.7)
 
                         region_weight[node] = weight
@@ -323,8 +323,8 @@ class LTFMTrainer:
                     'region_graphs': subgraphs,
                     'global_weights': global_weights,
                     'region_weights': region_weights,
-                    'global_label': 1,  # 异常
-                    'region_label': anomaly_region,  # 异常区域索引
+                    'global_label': 1,  # Anomaly
+                    'region_label': anomaly_region,  # Anomaly region index
                     'anomaly_node_idx': anomaly_node_idx,
                     'anomaly_node_name': anomaly_node,
                     'node_names': node_names,
@@ -333,8 +333,8 @@ class LTFMTrainer:
                 scenarios.append(scenario)
                 anomaly_count += 1
 
-                # 生成多种变体（增加数据多样性）
-                variants_to_generate = min(2, n_anomaly - anomaly_count)  # 每个基础场景最多生成2个变体
+                # Generate multiple variants (Increase data diversity)
+                variants_to_generate = min(2, n_anomaly - anomaly_count)  # Generate at most 2 variants per base scenario
                 for _ in range(variants_to_generate):
                     if anomaly_count >= n_anomaly:
                         break
@@ -346,43 +346,43 @@ class LTFMTrainer:
                         scenarios.append(variant_scenario)
                         anomaly_count += 1
 
-            logger.info(f"成功生成 {anomaly_count} 个异常场景（目标: {n_anomaly}）")
+            logger.info(f"Successfully generated {anomaly_count} anomaly scenarios (Target: {n_anomaly})")
             
-            logger.info(f"训练场景生成完成: {len(scenarios)} 个场景")
+            logger.info(f"Training scenario generation completed: {len(scenarios)} scenarios")
             return scenarios
 
         except Exception as e:
-            logger.error(f"训练场景生成失败: {e}")
+            logger.error(f"Failed to generate training scenarios: {e}")
             return []
 
     def _augment_pressure_sensitivity(self, pressure_sensitivity: np.ndarray, anomaly_node_idx: int) -> np.ndarray:
         """
-        对压力灵敏度进行数据增强
+        Augment pressure sensitivity data
 
         Args:
-            pressure_sensitivity: 原始压力灵敏度
-            anomaly_node_idx: 异常节点索引
+            pressure_sensitivity: Original pressure sensitivity
+            anomaly_node_idx: Anomaly node index
 
         Returns:
-            np.ndarray: 增强后的压力灵敏度
+            np.ndarray: Augmented pressure sensitivity
         """
         augmented = pressure_sensitivity.copy()
 
-        # 1. 添加高斯噪声
-        noise_level = 0.05  # 5%的噪声
+        # 1. Add Gaussian noise
+        noise_level = 0.05  # 5% noise
         noise = np.random.normal(0, noise_level, augmented.shape)
         augmented = augmented + noise
 
-        # 2. 增强异常节点的影响
+        # 2. Enhance impact of the anomaly node
         anomaly_boost = np.random.uniform(1.5, 3.0)
         augmented[anomaly_node_idx] *= anomaly_boost
 
-        # 3. 随机缩放部分节点
+        # 3. Randomly scale some nodes
         scale_mask = np.random.random(augmented.shape) < 0.3
         scale_factors = np.random.uniform(0.8, 1.2, augmented.shape)
         augmented[scale_mask] *= scale_factors[scale_mask]
 
-        # 4. 确保数值稳定性
+        # 4. Ensure numerical stability
         augmented = np.clip(augmented, -10, 10)
 
         return augmented
@@ -403,24 +403,24 @@ class LTFMTrainer:
         """
         try:
             variant = base_scenario.copy()
-            # 保留anomaly_node_idx等节点级信息
+            # Retain node-level information like anomaly_node_idx
             variant['anomaly_node_idx'] = base_scenario.get('anomaly_node_idx', -1)
             variant['anomaly_node_name'] = base_scenario.get('anomaly_node_name', None)
             variant['node_names'] = base_scenario.get('node_names', node_names)
             variant['partition_labels'] = base_scenario.get('partition_labels', partition_labels)
             variant_type = np.random.choice(['perturbation', 'intensity', 'multi_node', 'temporal'])
 
-            # 变体1：权重扰动
+            # Variant 1: Weight perturbation
             if variant_type == 'perturbation':
                 perturbed_global_weights = {}
                 for node, weight in base_scenario['global_weights'].items():
-                    # 添加高斯噪声扰动
-                    noise_level = 0.15  # 增加噪声水平
+                    # Add Gaussian noise perturbation
+                    noise_level = 0.15  # Increase noise level
                     perturbation = np.random.normal(0, abs(weight) * noise_level)
                     perturbed_global_weights[node] = weight + perturbation
                 variant['global_weights'] = perturbed_global_weights
 
-                # 同步更新区域权重
+                # Synchronously update region weights
                 perturbed_region_weights = []
                 for region_weight in base_scenario['region_weights']:
                     perturbed_region = {}
@@ -430,9 +430,9 @@ class LTFMTrainer:
                     perturbed_region_weights.append(perturbed_region)
                 variant['region_weights'] = perturbed_region_weights
 
-            # 变体2：异常强度调整
+            # Variant 2: Anomaly intensity adjustment
             elif variant_type == 'intensity':
-                intensity_factor = np.random.uniform(0.5, 2.0)  # 扩大强度范围
+                intensity_factor = np.random.uniform(0.5, 2.0)  # Expand intensity range
                 adjusted_global_weights = {}
                 for node, weight in base_scenario['global_weights'].items():
                     adjusted_global_weights[node] = weight * intensity_factor
@@ -446,22 +446,22 @@ class LTFMTrainer:
                     adjusted_region_weights.append(adjusted_region)
                 variant['region_weights'] = adjusted_region_weights
 
-            # 变体3：多节点异常（同一区域内的多个节点）
+            # Variant 3: Multi-node anomaly (Multiple nodes in the same region)
             elif variant_type == 'multi_node':
                 anomaly_region_idx = partition_labels[anomaly_node_idx]
-                # 找到同一区域的其他节点
+                # Find other nodes in the same region
                 same_region_nodes = [i for i, label in enumerate(partition_labels)
                                    if label == anomaly_region_idx and i != anomaly_node_idx]
 
                 if same_region_nodes:
-                    # 随机选择1-2个额外节点
+                    # Randomly select 1-2 additional nodes
                     additional_nodes = np.random.choice(
                         same_region_nodes,
                         size=min(2, len(same_region_nodes)),
                         replace=False
                     )
 
-                    # 增强这些节点的权重
+                    # Enhance weights of these nodes
                     enhanced_global_weights = base_scenario['global_weights'].copy()
                     for node_idx in additional_nodes:
                         node_name = node_names[node_idx]
@@ -470,7 +470,7 @@ class LTFMTrainer:
 
                     variant['global_weights'] = enhanced_global_weights
 
-                    # 同步更新区域权重
+                    # Synchronously update region weights
                     enhanced_region_weights = []
                     for region_weight in base_scenario['region_weights']:
                         enhanced_region = region_weight.copy()
@@ -481,18 +481,18 @@ class LTFMTrainer:
                         enhanced_region_weights.append(enhanced_region)
                     variant['region_weights'] = enhanced_region_weights
 
-            # 变体4：时序变化模拟（通过权重梯度变化）
+            # Variant 4: Temporal variation simulation (via weight gradient change)
             elif variant_type == 'temporal':
                 temporal_global_weights = {}
                 for node, weight in base_scenario['global_weights'].items():
-                    # 模拟时序变化：添加周期性变化
+                    # Simulate temporal variation: Add periodic change
                     phase = np.random.uniform(0, 2 * np.pi)
                     amplitude = abs(weight) * 0.3
                     temporal_factor = 1 + amplitude * np.sin(phase)
                     temporal_global_weights[node] = weight * temporal_factor
                 variant['global_weights'] = temporal_global_weights
 
-                # 同步更新区域权重
+                # Synchronously update region weights
                 temporal_region_weights = []
                 for region_weight in base_scenario['region_weights']:
                     temporal_region = {}
@@ -507,26 +507,26 @@ class LTFMTrainer:
             return variant
 
         except Exception as e:
-            logger.debug(f"创建场景变体失败: {e}")
+            logger.debug(f"Failed to create scenario variant: {e}")
             return None
             
         except Exception as e:
-            logger.error(f"生成训练场景失败: {e}")
+            logger.error(f"Failed to generate training scenarios: {e}")
             return []
     
     def precompute_embeddings(self, scenarios: List[Dict]) -> Tuple[
         torch.Tensor, List[torch.Tensor], torch.Tensor, torch.Tensor
     ]:
         """
-        预计算所有场景的嵌入，一次性完成编码
+        Precompute embeddings for all scenarios, complete encoding in one go
         
         Args:
-            scenarios: 场景列表
+            scenarios: List of scenarios
             
         Returns:
-            Tuple: (全局嵌入, 区域嵌入列表, 全局标签, 区域标签)
+            Tuple: (Global embeddings, List of region embeddings, Global labels, Region labels)
         """
-        logger.info(f"预计算 {len(scenarios)} 个场景的嵌入...")
+        logger.info(f"Precomputing embeddings for {len(scenarios)} scenarios...")
         
         global_embeddings = []
         num_regions = len(scenarios[0]['region_graphs'])
@@ -534,14 +534,14 @@ class LTFMTrainer:
         global_labels = []
         region_labels = []
         
-        for i, scenario in enumerate(tqdm(scenarios, desc="预计算嵌入")):
-            # 编码全局图
+        for i, scenario in enumerate(tqdm(scenarios, desc="Precomputing embeddings")):
+            # Encode global graph
             global_embedding = self.graph2vec_encoder.encode_graph(
                 scenario['global_graph'], scenario['global_weights']
             )
             global_embeddings.append(global_embedding)
             
-            # 编码区域图
+            # Encode region graphs
             for j, (region_graph, region_weight) in enumerate(
                 zip(scenario['region_graphs'], scenario['region_weights'])
             ):
@@ -550,11 +550,11 @@ class LTFMTrainer:
                 )
                 region_embeddings_list[j].append(region_embedding)
             
-            # 标签
+            # Labels
             global_labels.append(scenario['global_label'])
             region_labels.append(scenario['region_label'])
         
-        # 转换为张量
+        # Convert to tensor
         global_emb_tensor = torch.stack(global_embeddings)
         region_emb_tensors = [
             torch.stack(region_embs) for region_embs in region_embeddings_list
@@ -562,27 +562,27 @@ class LTFMTrainer:
         global_labels_tensor = torch.tensor(global_labels, dtype=torch.float32)
         region_labels_tensor = torch.tensor(region_labels, dtype=torch.long)
         
-        logger.info(f"预计算完成: 全局嵌入 {global_emb_tensor.shape}, "
-                    f"{num_regions} 个区域嵌入 {region_emb_tensors[0].shape}")
+        logger.info(f"Precomputation completed: Global embeddings {global_emb_tensor.shape}, "
+                    f"{num_regions} Region embeddings {region_emb_tensors[0].shape}")
         
-        # 验证嵌入有差异性
+        # Verify embedding diversity
         emb_std = global_emb_tensor.std(dim=0).mean().item()
-        logger.info(f"全局嵌入标准差（跨样本平均）: {emb_std:.6f}")
+        logger.info(f"Global embedding std (averaged across samples): {emb_std:.6f}")
         if emb_std < 1e-6:
-            logger.warning("⚠️ 嵌入几乎没有差异！编码器可能未正确捕获特征差异")
+            logger.warning("⚠️ Embeddings have almost no diversity! The encoder might not be capturing features correctly")
         
         return global_emb_tensor, region_emb_tensors, global_labels_tensor, region_labels_tensor
 
     def prepare_batch_data(self, batch: List[Dict]) -> Tuple[torch.Tensor, List[torch.Tensor], 
                                                            torch.Tensor, torch.Tensor]:
         """
-        准备批次数据（兼容旧接口，但建议使用 precompute_embeddings）
+        Prepare batch data (Compatible with legacy interface, but precompute_embeddings is recommended)
         
         Args:
-            batch: 批次数据
+            batch: Batch data
             
         Returns:
-            Tuple: (全局图嵌入, 区域图嵌入列表, 全局标签, 区域标签)
+            Tuple: (Global graph embeddings, List of region graph embeddings, Global labels, Region labels)
         """
         try:
             global_embeddings = []
@@ -591,24 +591,24 @@ class LTFMTrainer:
             region_labels = []
             
             for scenario in batch:
-                # 编码全局图
+                # Encode global graph
                 global_embedding = self.graph2vec_encoder.encode_graph(
                     scenario['global_graph'], scenario['global_weights']
                 )
                 global_embeddings.append(global_embedding)
                 
-                # 编码区域图
+                # Encode region graphs
                 for i, (region_graph, region_weight) in enumerate(
                     zip(scenario['region_graphs'], scenario['region_weights'])
                 ):
                     region_embedding = self.graph2vec_encoder.encode_graph(region_graph, region_weight)
                     region_embeddings_list[i].append(region_embedding)
                 
-                # 标签
+                # Labels
                 global_labels.append(scenario['global_label'])
                 region_labels.append(scenario['region_label'])
             
-            # 转换为张量
+            # Convert to tensor
             global_embeddings_tensor = torch.stack(global_embeddings).to(self.device)
             region_embeddings_tensors = [
                 torch.stack(region_embs).to(self.device) 
@@ -620,18 +620,18 @@ class LTFMTrainer:
             return global_embeddings_tensor, region_embeddings_tensors, global_labels_tensor, region_labels_tensor
             
         except Exception as e:
-            logger.error(f"准备批次数据失败: {e}")
+            logger.error(f"Failed to prepare batch data: {e}")
             return None, None, None, None
 
     def train_epoch(self, dataloader: DataLoader) -> Tuple[float, float]:
         """
-        训练一个epoch（支持预计算和旧模式）
+        Train one epoch (Supports precomputed and legacy modes)
 
         Args:
-            dataloader: 数据加载器
+            dataloader: Data loader
 
         Returns:
-            Tuple[float, float]: (平均损失, 准确率)
+            Tuple[float, float]: (Average loss, Accuracy)
         """
         self.ltfm_model.train()
         total_loss = 0.0
@@ -639,40 +639,40 @@ class LTFMTrainer:
         correct_global = 0
         correct_region = 0
 
-        for batch in tqdm(dataloader, desc=f"训练 Epoch {self.current_epoch}"):
-            # 判断是预计算模式还是旧模式
+        for batch in tqdm(dataloader, desc=f"Training Epoch {self.current_epoch}"):
+            # Determine if it's precomputed mode or legacy mode
             if isinstance(batch, (tuple, list)) and len(batch) == 4 and isinstance(batch[0], torch.Tensor):
-                # 预计算模式：batch 已经是 (global_embs, region_embs, global_labels, region_labels)
+                # Precomputed mode: batch is already (global_embs, region_embs, global_labels, region_labels)
                 global_embs, region_embs, global_labels, region_labels = batch
                 global_embs = global_embs.to(self.device)
                 region_embs = [r.to(self.device) for r in region_embs]
                 global_labels = global_labels.to(self.device)
                 region_labels = region_labels.to(self.device)
             else:
-                # 旧模式：需要编码
+                # Legacy mode: Needs encoding
                 global_embs, region_embs, global_labels, region_labels = self.prepare_batch_data(batch)
 
             if global_embs is None:
                 continue
 
-            # 前向传播
+            # Forward propagation
             self.optimizer.zero_grad()
             global_scores, region_scores = self.ltfm_model(global_embs, region_embs)
 
-            # 计算损失
+            # Calculate loss
             loss = self.ltfm_model.compute_loss(global_scores, region_scores, global_labels, region_labels)
 
-            # 反向传播
+            # Backward propagation
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.ltfm_model.parameters(), max_norm=1.0)
             self.optimizer.step()
 
-            # 统计
+            # Statistics
             batch_size = global_embs.shape[0]
             total_loss += loss.item() * batch_size
             total_samples += batch_size
 
-            # 计算准确率
+            # Calculate accuracy
             with torch.no_grad():
                 global_pred, region_pred = self.ltfm_model.predict(global_embs, region_embs)
                 correct_global += (global_pred.squeeze() == global_labels).sum().item()
@@ -687,13 +687,13 @@ class LTFMTrainer:
 
     def validate_epoch(self, dataloader: DataLoader) -> Tuple[float, float, Dict]:
         """
-        验证一个epoch
+        Validate one epoch
 
         Args:
-            dataloader: 验证数据加载器
+            dataloader: Validation data loader
 
         Returns:
-            Tuple[float, float, Dict]: (平均损失, 准确率, 详细指标)
+            Tuple[float, float, Dict]: (Average loss, Accuracy, Detailed metrics)
         """
         self.ltfm_model.eval()
         total_loss = 0.0
@@ -706,8 +706,8 @@ class LTFMTrainer:
         all_global_scores = []
 
         with torch.no_grad():
-            for batch in tqdm(dataloader, desc="验证"):
-                # 判断是预计算模式还是旧模式
+            for batch in tqdm(dataloader, desc="Validation"):
+                # Determine if it's precomputed mode or legacy mode
                 if isinstance(batch, (tuple, list)) and len(batch) == 4 and isinstance(batch[0], torch.Tensor):
                     global_embs, region_embs, global_labels, region_labels = batch
                     global_embs = global_embs.to(self.device)
@@ -720,21 +720,21 @@ class LTFMTrainer:
                 if global_embs is None:
                     continue
 
-                # 前向传播
+                # Forward propagation
                 global_scores, region_scores = self.ltfm_model(global_embs, region_embs)
 
-                # 计算损失
+                # Calculate loss
                 loss = self.ltfm_model.compute_loss(global_scores, region_scores, global_labels, region_labels)
 
-                # 预测
+                # Predict
                 global_pred, region_pred = self.ltfm_model.predict(global_embs, region_embs)
 
-                # 统计
+                # Statistics
                 batch_size = global_embs.shape[0]
                 total_loss += loss.item() * batch_size
                 total_samples += batch_size
 
-                # 收集预测结果
+                # Collect prediction results
                 global_pred_list = global_pred.cpu().numpy().flatten().tolist()
                 global_labels_list = global_labels.cpu().numpy().flatten().tolist()
                 region_pred_list = region_pred.cpu().numpy().flatten().tolist()
@@ -749,26 +749,26 @@ class LTFMTrainer:
 
         avg_loss = total_loss / total_samples if total_samples > 0 else 0.0
 
-        # 添加调试信息
+        # Add debug info
         if len(all_global_labels) > 0:
-            logger.info(f"验证集预测统计:")
-            logger.info(f"  全局标签分布: 正常={all_global_labels.count(0)}, 异常={all_global_labels.count(1)}")
+            logger.info(f"Validation set prediction statistics:")
+            logger.info(f"  Global label distribution: Normal={all_global_labels.count(0)}, Anomaly={all_global_labels.count(1)}")
             global_preds_int = [int(p) for p in all_global_preds]
-            logger.info(f"  全局预测分布: 正常={global_preds_int.count(0)}, 异常={global_preds_int.count(1)}")
+            logger.info(f"  Global prediction distribution: Normal={global_preds_int.count(0)}, Anomaly={global_preds_int.count(1)}")
             if all_global_scores:
-                logger.info(f"  全局得分范围: [{min(all_global_scores):.4f}, {max(all_global_scores):.4f}]")
+                logger.info(f"  Global score range: [{min(all_global_scores):.4f}, {max(all_global_scores):.4f}]")
             else:
-                logger.info("  全局得分范围: []")
-            logger.info(f"  区域标签唯一值: {set(all_region_labels)}")
-            logger.info(f"  区域预测唯一值: {set(all_region_preds)}")
+                logger.info("  Global score range: []")
+            logger.info(f"  Region label unique values: {set(all_region_labels)}")
+            logger.info(f"  Region prediction unique values: {set(all_region_preds)}")
 
             if len(set(all_global_preds)) == 1:
-                logger.warning("⚠️  所有全局预测都相同！模型可能没有学到有用特征")
+                logger.warning("⚠️  All global predictions are identical! Model might not have learned useful features")
 
             if len(set(all_region_preds)) == 1:
-                logger.warning("⚠️  所有区域预测都相同！模型可能没有学到有用特征")
+                logger.warning("⚠️  All region predictions are identical! Model might not have learned useful features")
 
-        # 计算详细指标
+        # Calculate detailed metrics
         metrics = self.calculate_metrics(
             all_global_preds, all_global_labels,
             all_region_preds, all_region_labels,
@@ -783,22 +783,22 @@ class LTFMTrainer:
                          region_preds: List, region_labels: List,
                          global_scores: List) -> Dict:
         """
-        计算评估指标
+        Calculate evaluation metrics
 
         Args:
-            global_preds: 全局预测
-            global_labels: 全局标签
-            region_preds: 区域预测
-            region_labels: 区域标签
-            global_scores: 全局得分
+            global_preds: Global predictions
+            global_labels: Global labels
+            region_preds: Region predictions
+            region_labels: Region labels
+            global_scores: Global scores
 
         Returns:
-            Dict: 评估指标字典
+            Dict: Dictionary of evaluation metrics
         """
         try:
             metrics = {}
 
-            # 全局异常检测指标
+            # Global anomaly detection metrics
             global_preds = np.array(global_preds)
             global_labels = np.array(global_labels)
             global_scores = np.array(global_scores)
@@ -813,15 +813,15 @@ class LTFMTrainer:
                 metrics['global_auc'] = roc_auc_score(global_labels, global_scores)
             else:
                 metrics['global_auc'] = 0.0
-                logger.debug(f"AUC设为0.0，因为标签只有一种类型: {unique_labels}")
+                logger.debug(f"AUC set to 0.0 because there is only one label type: {unique_labels}")
 
-            # 区域定位指标
+            # Regional localization metrics
             region_preds = np.array(region_preds)
             region_labels = np.array(region_labels)
 
             metrics['region_acc'] = accuracy_score(region_labels, region_preds)
 
-            # 只考虑异常样本的区域定位准确率
+            # Regional localization accuracy considering only anomaly samples
             anomaly_mask = global_labels == 1
             if np.sum(anomaly_mask) > 0:
                 anomaly_region_acc = accuracy_score(
@@ -835,25 +835,25 @@ class LTFMTrainer:
             return metrics
 
         except Exception as e:
-            logger.error(f"计算指标失败: {e}")
+            logger.error(f"Failed to calculate metrics: {e}")
             return {}
 
     def train(self, train_scenarios: List[Dict], val_scenarios: List[Dict], skip_stage1: bool = False) -> bool:
         """
-        训练模型（使用预计算嵌入加速）
+        Train model (Use precomputed embeddings for acceleration)
 
         Args:
-            train_scenarios: 训练场景
-            val_scenarios: 验证场景
-            skip_stage1: 是否跳过Stage 1训练
+            train_scenarios: Training scenarios
+            val_scenarios: Validation scenarios
+            skip_stage1: Whether to skip Stage 1 training
 
         Returns:
-            bool: 训练是否成功
+            bool: Whether training was successful
         """
         try:
-            # 预计算所有嵌入（一次性完成，避免每个epoch重复编码）
+            # Precompute all embeddings (Done once to avoid repeated encoding every epoch)
             logger.info("=" * 60)
-            logger.info("步骤1: 预计算嵌入（仅执行一次）")
+            logger.info("Stage 1: Precompute embeddings (Execute only once)")
             logger.info("=" * 60)
             
             train_global, train_regions, train_glabels, train_rlabels = \
@@ -863,24 +863,24 @@ class LTFMTrainer:
             
             # [NEW] Skip Stage 1 Logic
             if skip_stage1:
-                logger.info("侦测到跳过Stage 1请求...")
+                logger.info("Detected request to skip Stage 1...")
                 checkpoint_path = os.path.join(self.config['data']['output_dir'], 'checkpoints', 'best_model.pth')
                 if os.path.exists(checkpoint_path):
-                    logger.info(f"加载已有模型: {checkpoint_path}")
+                    logger.info(f"Loading existing model: {checkpoint_path}")
                     try:
                         self.load_checkpoint(checkpoint_path)
-                        logger.info("✅ 模型加载成功，跳过Stage 1训练")
+                        logger.info("✅ Model loaded successfully, skipping Stage 1 training")
                         
-                        # 重要: 必须保存预计算嵌入供 Stage 2 使用
+                        # Important: Must save precomputed embeddings for Stage 2 use
                         self._precomputed_train = (train_global, train_regions, train_glabels, train_rlabels)
                         self._precomputed_val = (val_global, val_regions, val_glabels, val_rlabels)
                         return True
                     except Exception as e:
-                        logger.warning(f"加载模型失败: {e}. 将继续进行训练...")
+                        logger.warning(f"Failed to load model: {e}. Continuing training...")
                 else:
-                    logger.warning(f"未找到检查点 {checkpoint_path}. 将继续进行训练...")
+                    logger.warning(f"Checkpoint {checkpoint_path} not found. Continuing training...")
 
-            # 创建预计算数据集
+            # Create precomputed dataset
             train_dataset = PrecomputedDataset(
                 train_global, train_regions, train_glabels, train_rlabels
             )
@@ -892,7 +892,7 @@ class LTFMTrainer:
                 train_dataset,
                 batch_size=self.config['training']['batch_size'],
                 shuffle=True,
-                num_workers=0,  # Windows兼容性
+                num_workers=0,  # Windows compatibility
                 collate_fn=precomputed_collate_fn
             )
 
@@ -904,38 +904,38 @@ class LTFMTrainer:
                 collate_fn=precomputed_collate_fn
             )
 
-            # 检查数据集标签分布
+            # Check dataset label distribution
             train_global_labels = [s['global_label'] for s in train_scenarios]
             val_global_labels = [s['global_label'] for s in val_scenarios]
             train_region_labels = [s['region_label'] for s in train_scenarios]
             val_region_labels = [s['region_label'] for s in val_scenarios]
 
-            logger.info(f"开始训练: {len(train_scenarios)} 训练样本, {len(val_scenarios)} 验证样本")
-            logger.info(f"训练集标签分布 - 正常: {train_global_labels.count(0)}, 异常: {train_global_labels.count(1)}")
-            logger.info(f"验证集标签分布 - 正常: {val_global_labels.count(0)}, 异常: {val_global_labels.count(1)}")
-            logger.info(f"训练集区域标签分布: {set(train_region_labels)}")
-            logger.info(f"验证集区域标签分布: {set(val_region_labels)}")
+            logger.info(f"Start training: {len(train_scenarios)} training samples, {len(val_scenarios)} validation samples")
+            logger.info(f"Training set label distribution - Normal: {train_global_labels.count(0)}, Anomaly: {train_global_labels.count(1)}")
+            logger.info(f"Validation set label distribution - Normal: {val_global_labels.count(0)}, Anomaly: {val_global_labels.count(1)}")
+            logger.info(f"Training set region label distribution: {set(train_region_labels)}")
+            logger.info(f"Validation set region label distribution: {set(val_region_labels)}")
 
-            # 训练循环
+            # Training loop
             for epoch in range(self.config['training']['epochs']):
                 self.current_epoch = epoch + 1
 
-                # 训练
+                # Train
                 train_loss, train_acc = self.train_epoch(train_loader)
 
-                # 验证
+                # Validate
                 val_loss, val_acc, val_metrics = self.validate_epoch(val_loader)
 
-                # 更新学习率
+                # Update learning rate
                 self.scheduler.step(val_loss)
 
-                # 记录历史
+                # Record history
                 self.train_history['train_loss'].append(train_loss)
                 self.train_history['val_loss'].append(val_loss)
                 self.train_history['train_acc'].append(train_acc)
                 self.train_history['val_acc'].append(val_acc)
 
-                # 日志
+                # Log
                 logger.info(
                     f"Epoch {self.current_epoch}/{self.config['training']['epochs']} - "
                     f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
@@ -948,12 +948,12 @@ class LTFMTrainer:
                     f"Anomaly Region Acc: {val_metrics.get('anomaly_region_acc', 0):.4f}"
                 )
 
-                # 改进的早停检查 - 综合考虑多个指标
-                # 计算综合评分：损失 + 区域准确率
+                # Improved early stopping check - Consider multiple metrics comprehensively
+                # Calculate composite score: Loss + Region Accuracy
                 region_acc = val_metrics.get('anomaly_region_acc', 0.0)
                 global_auc = val_metrics.get('global_auc', 0.0)
 
-                # 综合评分：损失越低越好，准确率越高越好
+                # Composite score: Lower loss is better, higher accuracy is better
                 composite_score = -val_loss + 2.0 * region_acc + 1.0 * global_auc
 
                 if composite_score > self.best_composite_score:
@@ -961,34 +961,34 @@ class LTFMTrainer:
                     self.best_val_loss = val_loss
                     self.patience_counter = 0
                     self.save_checkpoint('best_model.pth')
-                    logger.info(f"新的最佳模型 - 综合评分: {composite_score:.4f}, 区域准确率: {region_acc:.4f}")
+                    logger.info(f"New best model - Composite Score: {composite_score:.4f}, Region Accuracy: {region_acc:.4f}")
                 else:
                     self.patience_counter += 1
 
-                # 动态调整早停耐心值
+                # Dynamically adjust early stopping patience
                 patience = self.config['training']['early_stopping_patience']
-                if region_acc > 0.1:  # 如果区域准确率有改善，增加耐心
+                if region_acc > 0.1:  # If region accuracy improves, increase patience
                     patience = patience + 5
 
                 if self.patience_counter >= patience:
-                    logger.info(f"早停触发，在第 {self.current_epoch} 轮停止训练")
-                    logger.info(f"最佳综合评分: {self.best_composite_score:.4f}")
+                    logger.info(f"Early stopping triggered, stopped at epoch {self.current_epoch}")
+                    logger.info(f"Best composite score: {self.best_composite_score:.4f}")
                     break
 
-                # 定期保存检查点
+                # Setup periodic checkpoint saving
                 if self.current_epoch % 10 == 0:
                     self.save_checkpoint(f'checkpoint_epoch_{self.current_epoch}.pth')
 
-            logger.info("LTFM训练完成")
+            logger.info("LTFM training completed")
             
-            # 保存预计算嵌入供 NodeLocalizer 使用
+            # Save precomputed embeddings for NodeLocalizer use
             self._precomputed_train = (train_global, train_regions, train_glabels, train_rlabels)
             self._precomputed_val = (val_global, val_regions, val_glabels, val_rlabels)
             
             return True
 
         except Exception as e:
-            logger.error(f"训练失败: {e}")
+            logger.error(f"Training failed: {e}")
             return False
 
     def train_node_localizer(self, train_scenarios: List[Dict], 
@@ -996,62 +996,62 @@ class LTFMTrainer:
                               n_epochs: int = 100,
                               lr: float = 0.001) -> bool:
         """
-        Stage 2: 训练NodeLocalizer模型
-        使用冻结的LTFM中间特征 + 灵敏度向量 → 预测漏损节点
-        包含数据增强(20x Gaussian noise)以解决样本不足问题
+        Stage 2: Train NodeLocalizer model
+        Use frozen LTFM intermediate features + sensitivity vectors -> Predict leakage nodes
+        Includes data augmentation (20x Gaussian noise) to solve insufficient sample problem
         
         Args:
-            train_scenarios: 训练场景（包含anomaly_node_idx）
-            val_scenarios: 验证场景
-            n_epochs: 训练轮数
-            lr: 学习率
+            train_scenarios: Training scenarios (containing anomaly_node_idx)
+            val_scenarios: Validation scenarios
+            n_epochs: Number of epochs
+            lr: Learning rate
             
         Returns:
-            bool: 训练是否成功
+            bool: Whether training was successful
         """
         try:
             logger.info("=" * 60)
-            logger.info("Stage 2: 训练NodeLocalizer（节点级漏损定位）")
+            logger.info("Stage 2: Train NodeLocalizer (Node-level leakage localization)")
             logger.info("=" * 60)
             
-            # 1. 筛选异常场景（只有异常场景有漏损节点标签）
+            # 1. Filter anomaly scenarios (Only anomaly scenarios have leakage node labels)
             train_anomaly = [s for s in train_scenarios if s['global_label'] == 1]
             val_anomaly = [s for s in val_scenarios if s['global_label'] == 1]
             
             if not train_anomaly or not val_anomaly:
-                logger.error("没有异常场景用于训练NodeLocalizer")
+                logger.error("No anomaly scenarios for training NodeLocalizer")
                 return False
             
-            logger.info(f"异常场景: 训练={len(train_anomaly)}, 验证={len(val_anomaly)}")
+            logger.info(f"Anomaly scenarios: Train={len(train_anomaly)}, Val={len(val_anomaly)}")
             
-            # 2. 获取节点信息
+            # 2. Get node information
             node_names = train_anomaly[0].get('node_names', [])
             n_nodes = len(node_names)
             network_graph = train_anomaly[0]['global_graph']
             
             if n_nodes == 0:
-                logger.error("无法获取节点名称信息")
+                logger.error("Unable to get node name information")
                 return False
             
-            logger.info(f"网络节点数: {n_nodes}")
+            logger.info(f"Number of network nodes: {n_nodes}")
             
-            # 3. 使用预计算嵌入提取中间特征（快速模式）
-            logger.info("使用预计算嵌入提取区域特征（跳过图编码）...")
+            # 3. Use precomputed embeddings to extract intermediate features (Fast mode)
+            logger.info("Using precomputed embeddings to extract regional features (Skipping graph encoding)...")
             self.ltfm_model.eval()
             
-            # 尝试使用已缓存的预计算嵌入
+            # Try to use cached precomputed embeddings
             if hasattr(self, '_precomputed_train') and hasattr(self, '_precomputed_val'):
                 train_global, train_regions, train_glabels, train_rlabels = self._precomputed_train
                 val_global, val_regions, val_glabels, val_rlabels = self._precomputed_val
-                logger.info("✅ 复用LTFM训练阶段的预计算嵌入")
+                logger.info("✅ Reusing precomputed embeddings from LTFM training stage")
             else:
-                logger.info("⚠️ 无缓存嵌入，重新计算...")
+                logger.info("⚠️ No cached embeddings, recomputing...")
                 train_global, train_regions, train_glabels, train_rlabels = \
                     self.precompute_embeddings(train_scenarios)
                 val_global, val_regions, val_glabels, val_rlabels = \
                     self.precompute_embeddings(val_scenarios)
             
-            # 筛选异常场景的索引
+            # Filter indices of anomaly scenarios
             train_anomaly_indices = [i for i, s in enumerate(train_scenarios) if s['global_label'] == 1]
             val_anomaly_indices = [i for i, s in enumerate(val_scenarios) if s['global_label'] == 1]
             
@@ -1065,18 +1065,18 @@ class LTFMTrainer:
             )
             
             if train_features is None:
-                logger.error("特征提取失败")
+                logger.error("Feature extraction failed")
                 return False
             
-            # 统计区域约束信息
+            # Statistics on region constraints
             avg_region_size = train_masks.float().sum(dim=1).mean().item()
-            logger.info(f"原始训练特征: region_feat={train_features.shape}, "
+            logger.info(f"Original training features: region_feat={train_features.shape}, "
                         f"sens={train_sens.shape}, labels={train_labels.shape}")
-            logger.info(f"区域约束: 平均每个样本只在 {avg_region_size:.0f}/{n_nodes} 个节点中分类")
+            logger.info(f"Region constraint: On average, each sample is classified within {avg_region_size:.0f}/{n_nodes} nodes")
             
-            # 4. 数据增强: 添加高斯噪声创建40x更多训练样本
+            # 4. Data augmentation: Add Gaussian noise to create 40x more training samples
             augment_factor = 40
-            logger.info(f"数据增强: {augment_factor}x 高斯噪声扩增...")
+            logger.info(f"Data augmentation: {augment_factor}x Gaussian noise amplification...")
             
             aug_features_list = [train_features]
             aug_sens_list = [train_sens]
@@ -1097,9 +1097,9 @@ class LTFMTrainer:
                 aug_feat = train_features + feat_noise
                 aug_sens = train_sens + sens_noise
                 
-                # [NEW] 灵敏度掩码增强 (Sensitivity Masking)
+                # [NEW] Sensitivity Masking
                 # DISABLE: Masking breaks the physics bias alignment
-                # 随机将 15% 的灵敏度数值置为0 -> 取消
+                # Randomly set 15% of sensitivity values to 0 -> Cancelled
                 # mask_prob = 0.15
                 # sens_mask = torch.rand_like(aug_sens) > mask_prob
                 # aug_sens = aug_sens * sens_mask.float()
@@ -1107,24 +1107,24 @@ class LTFMTrainer:
                 aug_features_list.append(aug_feat)
                 aug_sens_list.append(aug_sens)
                 aug_labels_list.append(train_labels.clone())
-                aug_masks_list.append(train_masks.clone())  # 区域掩码不变
+                aug_masks_list.append(train_masks.clone())  # Region mask remains unchanged
             
             train_features_aug = torch.cat(aug_features_list, dim=0)
             train_sens_aug = torch.cat(aug_sens_list, dim=0)
             train_labels_aug = torch.cat(aug_labels_list, dim=0)
             train_masks_aug = torch.cat(aug_masks_list, dim=0)
             
-            logger.info(f"增强后训练样本: {train_features_aug.shape[0]} "
-                        f"(原始 {train_features.shape[0]} × {augment_factor + 1})")
+            logger.info(f"Augmented training samples: {train_features_aug.shape[0]} "
+                        f"(Original {train_features.shape[0]} × {augment_factor + 1})")
             
-            # 5. 初始化NodeLocalizer（从配置读取参数）
+            # 5. Initialize NodeLocalizer (Read parameters from config)
             nl_config = self.config.get('node_localizer', {})
             hidden_dim = int(nl_config.get('hidden_dim', 256))
             dropout = float(nl_config.get('dropout', 0.1))
             epochs = int(nl_config.get('epochs', n_epochs))
             lr = float(nl_config.get('learning_rate', lr))
             
-            logger.info(f"NodeLocalizer配置: hidden_dim={hidden_dim}, dropout={dropout}, epochs={epochs}, lr={lr}")
+            logger.info(f"NodeLocalizer Config: hidden_dim={hidden_dim}, dropout={dropout}, epochs={epochs}, lr={lr}")
 
             embed_dim = self.ltfm_model.embed_dim
             self.node_localizer = NodeLocalizer(
@@ -1134,10 +1134,10 @@ class LTFMTrainer:
                 dropout=dropout
             ).to(self.device)
             
-            optimizer = optim.Adam(self.node_localizer.parameters(), lr=lr, weight_decay=1e-4) # 增加weight_decay防止过拟合
+            optimizer = optim.Adam(self.node_localizer.parameters(), lr=lr, weight_decay=1e-4) # Increase weight_decay to prevent overfitting
             criterion = nn.CrossEntropyLoss()
             
-            # 6. 创建DataLoader（包含区域掩码）
+            # 6. Create DataLoader (Including region mask)
             train_dataset = torch.utils.data.TensorDataset(
                 train_features_aug, train_sens_aug, train_labels_aug, train_masks_aug
             )
@@ -1156,12 +1156,12 @@ class LTFMTrainer:
                 epochs=epochs
             )
             
-            # 7. 训练循环
+            # 7. Training loop
             best_node_acc_hop = 0.0
             patience_counter = 0
             
             for epoch in range(epochs):
-                # 训练
+                # Train
                 self.node_localizer.train()
                 total_loss = 0.0
                 total_correct = 0
@@ -1176,7 +1176,7 @@ class LTFMTrainer:
                     optimizer.zero_grad()
                     node_scores = self.node_localizer(feat_batch, sens_batch)
                     
-                    # 区域约束: 非区域内节点的logit设为-inf
+                    # Region constraint: Set logits of nodes outside the region to -inf
                     node_scores = node_scores.masked_fill(~mask_batch, -1e9)
                     loss = criterion(node_scores, label_batch)
                     loss.backward()
@@ -1192,7 +1192,7 @@ class LTFMTrainer:
                 train_loss = total_loss / total_samples
                 train_acc = total_correct / total_samples
                 
-                # 验证
+                # Validate
                 self.node_localizer.eval()
                 val_loss = 0.0
                 all_preds = []
@@ -1207,7 +1207,7 @@ class LTFMTrainer:
                         
                         node_scores = self.node_localizer(feat_batch, sens_batch)
                         
-                        # 区域约束
+                        # Region constraint
                         node_scores = node_scores.masked_fill(~mask_batch, -1e9)
                         loss = criterion(node_scores, label_batch)
                         val_loss += loss.item() * feat_batch.shape[0]
@@ -1218,12 +1218,12 @@ class LTFMTrainer:
                 
                 val_loss = val_loss / len(val_dataset)
                 
-                # 计算节点准确率（精确 + 邻居容差）
+                # Calculate node accuracy (Exact + Neighbor tolerance)
                 node_acc_exact, node_acc_hop = self.calculate_node_accuracy(
                     all_preds, all_labels, node_names, network_graph
                 )
                 
-                # 每5轮或有进展时打印日志
+                # Print log every 5 epochs or when there is progress
                 should_log = (epoch + 1) % 5 == 0 or epoch == 0 or node_acc_hop > best_node_acc_hop
                 if should_log:
                     logger.info(
@@ -1234,25 +1234,25 @@ class LTFMTrainer:
                     f"Node Acc (±1 hop): {node_acc_hop:.4f}"
                 )
                 
-                # 早停
+                # Early stopping
                 if node_acc_hop > best_node_acc_hop:
                     best_node_acc_hop = node_acc_hop
                     patience_counter = 0
-                    # 保存最优NodeLocalizer
+                    # Save best NodeLocalizer
                     self._save_node_localizer('best_node_localizer.pth')
-                    logger.info(f"新的最佳NodeLocalizer - Node Acc (±1 hop): {node_acc_hop:.4f}")
+                    logger.info(f"New best NodeLocalizer - Node Acc (±1 hop): {node_acc_hop:.4f}")
                 else:
                     patience_counter += 1
                 
                 if patience_counter >= 25:
-                    logger.info(f"NodeLocalizer早停，在第 {epoch+1} 轮停止")
+                    logger.info(f"NodeLocalizer early stopping, stopped at epoch {epoch+1}")
                     break
             
-            logger.info(f"NodeLocalizer训练完成 - 最佳 Node Acc (±1 hop): {best_node_acc_hop:.4f}")
+            logger.info(f"NodeLocalizer training completed - Best Node Acc (±1 hop): {best_node_acc_hop:.4f}")
             return True
             
         except Exception as e:
-            logger.error(f"NodeLocalizer训练失败: {e}")
+            logger.error(f"NodeLocalizer training failed: {e}")
             import traceback
             traceback.print_exc()
             return False
@@ -1264,32 +1264,32 @@ class LTFMTrainer:
                                       region_labels: torch.Tensor,
                                       node_names: List[str]):
         """
-        快速提取节点特征：复用预计算嵌入 + 批量LTFM前向传播
+        Fast node feature extraction: Reuse precomputed embeddings + Batch LTFM forward propagation
         
         Args:
-            scenarios: 全部场景列表
-            anomaly_indices: 异常场景的索引
-            global_embs: 预计算的全局嵌入 [N, dim]
-            region_embs_list: 预计算的区域嵌入列表
-            region_labels: 区域标签 [N]
-            node_names: 节点名称列表
+            scenarios: All scenarios list
+            anomaly_indices: Indices of anomaly scenarios
+            global_embs: Precomputed global embeddings [N, dim]
+            region_embs_list: List of precomputed region embeddings
+            region_labels: Region labels [N]
+            node_names: List of node names
             
         Returns:
             Tuple: (region_features, sensitivity_vectors, node_labels, region_masks)
-                   region_masks: [n_samples, n_nodes] bool, True=node在异常区域内
+                   region_masks: [n_samples, n_nodes] bool, True=node inside anomaly region
         """
         try:
             n_nodes = len(node_names)
             batch_size = 128
             
-            # 1. 提取异常场景的嵌入
+            # 1. Extract embeddings of anomaly scenarios
             anom_global = global_embs[anomaly_indices]  # [n_anomaly, dim]
             anom_regions = [r[anomaly_indices] for r in region_embs_list]  # List of [n_anomaly, dim]
             anom_rlabels = region_labels[anomaly_indices]  # [n_anomaly]
             
             n_anomaly = anom_global.shape[0]
             
-            # 2. 批量LTFM前向传播提取中间特征
+            # 2. Batch LTFM forward propagation to extract intermediate features
             all_region_feats = []
             
             with torch.no_grad():
@@ -1305,7 +1305,7 @@ class LTFMTrainer:
                     )
                     # intermediate_feats: List of [batch, embed_dim], one per region
                     
-                    # 每个样本取其异常区域的特征
+                    # Get features of the anomaly region for each sample
                     for i in range(end - start):
                         rlabel = batch_rlabels[i].item()
                         if rlabel > 0 and rlabel <= len(intermediate_feats):
@@ -1314,7 +1314,7 @@ class LTFMTrainer:
                             feat = torch.stack([f[i] for f in intermediate_feats]).mean(0)
                         all_region_feats.append(feat.cpu())
             
-            # 3. 构建灵敏度向量 + 节点标签 + 区域掩码
+            # 3. Build sensitivity vectors + Node labels + Region masks
             sensitivity_vectors = []
             node_labels = []
             region_masks = []
@@ -1332,15 +1332,15 @@ class LTFMTrainer:
                 sensitivity_vectors.append(sens_vector)
                 node_labels.append(anomaly_node_idx)
                 
-                # 构建区域掩码: 只允许异常区域内的节点
+                # Build region mask: Only allow nodes inside the anomaly region
                 pl = scenario.get('partition_labels', None)
                 rlabel = scenario.get('region_label', 0)
                 if pl is not None and rlabel > 0:
-                    # region_label是1-indexed, partition_labels是0-indexed
+                    # region_label is 1-indexed, partition_labels is 0-indexed
                     region_idx = rlabel - 1
                     mask = torch.tensor([pl[j] == region_idx for j in range(n_nodes)], dtype=torch.bool)
                 else:
-                    # fallback: 不约束（所有节点都可选）
+                    # fallback: No constraint (all nodes are optional)
                     mask = torch.ones(n_nodes, dtype=torch.bool)
                 region_masks.append(mask)
             
@@ -1352,11 +1352,11 @@ class LTFMTrainer:
             node_labels = torch.tensor(node_labels, dtype=torch.long)
             region_masks_tensor = torch.stack(region_masks)
             
-            logger.info(f"快速特征提取完成: {region_features.shape[0]} 个样本")
+            logger.info(f"Fast feature extraction completed: {region_features.shape[0]} samples")
             return region_features, sensitivity_vectors, node_labels, region_masks_tensor
             
         except Exception as e:
-            logger.error(f"快速特征提取失败: {e}")
+            logger.error(f"Fast feature extraction failed: {e}")
             import traceback
             traceback.print_exc()
             return None, None, None, None
@@ -1365,16 +1365,16 @@ class LTFMTrainer:
                                  node_names: List[str], 
                                  network_graph: nx.Graph) -> Tuple[float, float]:
         """
-        计算节点级准确率（精确 + 邻居容差±1 hop）
+        Calculate node-level accuracy (Exact + Neighbor tolerance ±1 hop)
         
         Args:
-            preds: 预测的节点索引列表
-            labels: 真实的节点索引列表  
-            node_names: 节点名称列表
-            network_graph: 网络图（用于查找邻居）
+            preds: List of predicted node indices
+            labels: List of true node indices
+            node_names: List of node names
+            network_graph: Network graph (used to find neighbors)
             
         Returns:
-            Tuple[float, float]: (精确准确率, 邻居容差准确率)
+            Tuple[float, float]: (Exact accuracy, Neighbor tolerance accuracy)
         """
         if not preds or not labels:
             return 0.0, 0.0
@@ -1384,13 +1384,13 @@ class LTFMTrainer:
         total = len(preds)
         
         for pred_idx, true_idx in zip(preds, labels):
-            # 精确匹配
+            # Exact match
             if pred_idx == true_idx:
                 exact_correct += 1
                 hop_correct += 1
                 continue
             
-            # 邻居容差：检查预测节点是否为真实节点的±1 hop邻居
+            # Neighbor tolerance: Check if the predicted node is within ±1 hop of the true node
             try:
                 true_node_name = node_names[true_idx]
                 pred_node_name = node_names[pred_idx]
@@ -1408,7 +1408,7 @@ class LTFMTrainer:
         return exact_acc, hop_acc
     
     def _save_node_localizer(self, filename: str):
-        """保存NodeLocalizer模型"""
+        """Save NodeLocalizer model"""
         try:
             checkpoint_dir = os.path.join(self.config['data']['output_dir'], 'checkpoints')
             os.makedirs(checkpoint_dir, exist_ok=True)
@@ -1419,19 +1419,19 @@ class LTFMTrainer:
                 'region_dim': self.node_localizer.region_dim,
                 'hidden_dim': self.node_localizer.hidden_dim
             }, filepath)
-            logger.info(f"NodeLocalizer已保存: {filepath}")
+            logger.info(f"NodeLocalizer saved: {filepath}")
         except Exception as e:
-            logger.error(f"保存NodeLocalizer失败: {e}")
+            logger.error(f"Failed to save NodeLocalizer: {e}")
 
     def save_checkpoint(self, filename: str) -> bool:
         """
-        保存检查点
+        Save checkpoint
 
         Args:
-            filename: 文件名
+            filename: Filename
 
         Returns:
-            bool: 保存是否成功
+            bool: Whether saving was successful
         """
         try:
             checkpoint = {
@@ -1444,36 +1444,36 @@ class LTFMTrainer:
                 'config': self.config
             }
 
-            # 使用配置中的输出目录
+            # Use output directory from config
             output_dir = self.config['data'].get('output_dir', 'output')
             checkpoint_dir = os.path.join(output_dir, 'checkpoints')
             os.makedirs(checkpoint_dir, exist_ok=True)
             checkpoint_path = os.path.join(checkpoint_dir, filename)
             torch.save(checkpoint, checkpoint_path)
-            logger.info(f"检查点已保存: {checkpoint_path}")
+            logger.info(f"Checkpoint saved: {checkpoint_path}")
             return True
 
         except Exception as e:
-            logger.error(f"保存检查点失败: {e}")
+            logger.error(f"Failed to save checkpoint: {e}")
             return False
 
     def load_checkpoint(self, filename: str) -> bool:
         """
-        加载检查点
+        Load checkpoint
 
         Args:
-            filename: 文件名
+            filename: Filename
 
         Returns:
-            bool: 加载是否成功
+            bool: Whether loading was successful
         """
         try:
-            # 使用配置中的输出目录
+            # Use output directory from config
             output_dir = self.config['data'].get('output_dir', 'output')
             checkpoint_path = os.path.join(output_dir, 'checkpoints', filename)
 
             if not os.path.exists(checkpoint_path):
-                logger.error(f"检查点文件不存在: {checkpoint_path}")
+                logger.error(f"Checkpoint file not found: {checkpoint_path}")
                 return False
 
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -1485,9 +1485,9 @@ class LTFMTrainer:
             self.best_val_loss = checkpoint['best_val_loss']
             self.train_history = checkpoint['train_history']
 
-            logger.info(f"检查点已加载: {checkpoint_path}")
+            logger.info(f"Checkpoint loaded: {checkpoint_path}")
             return True
 
         except Exception as e:
-            logger.error(f"加载检查点失败: {e}")
+            logger.error(f"Failed to load checkpoint: {e}")
             return False

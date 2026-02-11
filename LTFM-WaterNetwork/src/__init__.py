@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-供水管网漏损检测系统
+Water Supply Network Leak Detection System
 Water Distribution Network Leak Detection System using LTFM
 """
 
