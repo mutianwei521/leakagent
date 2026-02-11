@@ -90,6 +90,7 @@ The system orchestrates a team of specialized agents to execute complex, multi-s
 <p align="center"><em>Figure 2: The interactive web interface of LeakAgent.</em></p>
 
 ### 🎥 Demo Video
+https://github.com/mutianwei521/leakagent/blob/main/paper/demo.mp4
 [![Watch Demo](paper/td.png)](https://www.youtube.com/watch?v=GbUHKllEPh0)
 *Click the image above to watch the demonstration video.*
 
