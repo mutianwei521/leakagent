@@ -16,7 +16,7 @@ Guangzhou Institute of Industrial Intelligence
 </div>
 
 ---
-
+## 🔥 News
 - **[2026-02-11]** Released leak detection module. Fixed device mismatch bugs and optimized leak detection moudule.
 - **[2026-02-09]** LeakAgent code is released! Now supports advanced sensor placement and boundary optimization.
 - **[2026-01-20]** Added support for spectral clustering-based network partitioning.
@@ -90,7 +90,7 @@ The system orchestrates a team of specialized agents to execute complex, multi-s
 <p align="center"><em>Figure 2: The interactive web interface of LeakAgent.</em></p>
 
 ### 🎥 Demo Video
-[![Watch Demo](paper/td.png)](https://www.youtube.com/watch?v=GbUHKllEPh0)
+[![Watch Demo](paper/td.png)](https://www.youtube.com/watch?v=4pYWMjVU5ZU)
 *Click the image above to watch the demonstration video.*
 
 ## 💡 Recommended Prompts
